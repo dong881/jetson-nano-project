@@ -131,7 +131,7 @@ docker build -t snake-rl .
 # Run the container with CUDA support
 docker run --runtime nvidia \
   -e DISPLAY=$DISPLAY \
-  -e LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH \
+  -e LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
   -v /usr/local/cuda:/usr/local/cuda:ro \
   -v $(pwd)/model:/app/model \
@@ -290,7 +290,7 @@ ls /usr/local/cuda/lib64/libcurand.so.10
 volumes:
   - /usr/local/cuda:/usr/local/cuda:ro
 environment:
-  - LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+  - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
 
 3. **Rebuild without cache**:
