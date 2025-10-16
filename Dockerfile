@@ -13,7 +13,6 @@ RUN rm -f /etc/apt/sources.list.d/kitware.list* && \
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3-pygame \
     libsdl2-dev \
     libsdl2-image-dev \
     libsdl2-mixer-dev \
