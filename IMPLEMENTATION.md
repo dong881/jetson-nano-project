@@ -98,7 +98,7 @@ This project implements a complete Snake game with both human playable mode and 
   - Volume mounting for model persistence
 
 - ✅ **Easy Deployment** (確保模型可以正確直接開始訓練)
-  - `docker-compose up --build` - Single command
+  - `docker compose build` then `docker compose up` - Simple commands
   - All dependencies included
   - Ready to train immediately
 
@@ -232,7 +232,8 @@ python main.py
 ### Method 3: Docker Deployment (Recommended)
 ```bash
 xhost +local:docker
-docker-compose up --build
+docker compose build
+docker compose up
 ```
 
 ---

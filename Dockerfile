@@ -46,10 +46,10 @@ RUN mkdir -p model
 # Remove conflicting NVIDIA libraries to fix runtime mount errors
 # This is a workaround for the "file exists" error when using nvidia runtime on Jetson
 # The nvidia-container-runtime will mount these libraries from the host
+# Note: We keep CUDA runtime libraries (libcudart, libcurand, libcublas, etc.) that PyTorch needs
 RUN rm -f /usr/lib/aarch64-linux-gnu/libcuda.so* \
     /usr/lib/aarch64-linux-gnu/libnvidia-*.so* \
     /usr/lib/aarch64-linux-gnu/libvisionworks*.so* \
-    /usr/lib/aarch64-linux-gnu/libcudnn*.so* \
     /usr/lib/aarch64-linux-gnu/libnvcaffe_parser*.so* \
     /usr/lib/aarch64-linux-gnu/libnvinfer*.so* \
     /usr/lib/aarch64-linux-gnu/libnvonnxparser*.so* \
@@ -57,7 +57,6 @@ RUN rm -f /usr/lib/aarch64-linux-gnu/libcuda.so* \
     /usr/lib/libcuda.so* \
     /usr/lib/libnvidia-*.so* \
     /usr/lib/libvisionworks*.so* \
-    /usr/lib/libcudnn*.so* \
     /usr/lib/libnvcaffe_parser*.so* \
     /usr/lib/libnvinfer*.so* \
     /usr/lib/libnvonnxparser*.so* \
