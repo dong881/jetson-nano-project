@@ -54,6 +54,14 @@ RUN rm -f /usr/lib/aarch64-linux-gnu/libcuda.so* \
     /usr/lib/aarch64-linux-gnu/libnvinfer*.so* \
     /usr/lib/aarch64-linux-gnu/libnvonnxparser*.so* \
     /usr/lib/aarch64-linux-gnu/libnvparsers*.so* \
+    /usr/lib/libcuda.so* \
+    /usr/lib/libnvidia-*.so* \
+    /usr/lib/libvisionworks*.so* \
+    /usr/lib/libcudnn*.so* \
+    /usr/lib/libnvcaffe_parser*.so* \
+    /usr/lib/libnvinfer*.so* \
+    /usr/lib/libnvonnxparser*.so* \
+    /usr/lib/libnvparsers*.so* \
     2>/dev/null || true
 
 # Set display environment variable (for X11 forwarding)
