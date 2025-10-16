@@ -80,10 +80,13 @@ python main.py
 
 ### Docker Installation (Recommended for Jetson Nano)
 
-This project includes a Dockerfile optimized for Jetson Nano with CUDA support.
+This project includes a Dockerfile optimized for Jetson Nano with CUDA support. The docker-compose.yml is configured to:
+- Use NVIDIA Container Runtime for GPU access
+- Mount CUDA libraries from the host system to avoid library conflicts
+- Set proper environment variables for CUDA library paths
 
 1. **Prerequisites**:
-   - Jetson Nano with JetPack installed
+   - Jetson Nano with JetPack installed (includes CUDA)
    - Docker installed
    - NVIDIA Container Runtime installed
 
@@ -125,10 +128,12 @@ Or build and run manually:
 # Build the image
 docker build -t snake-rl .
 
-# Run the container
+# Run the container with CUDA support
 docker run --runtime nvidia \
   -e DISPLAY=$DISPLAY \
+  -e LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  -v /usr/local/cuda:/usr/local/cuda:ro \
   -v $(pwd)/model:/app/model \
   -v $(pwd)/high_score.txt:/app/high_score.txt \
   --network host \
@@ -267,17 +272,35 @@ If you encounter an error like:
 OSError: libcurand.so.10: cannot open shared object file: No such file or directory
 ```
 
-This has been fixed in the latest Dockerfile by preserving CUDA runtime libraries (libcudnn, libcurand, libcublas, etc.) that PyTorch requires while removing only conflicting libraries. If you still encounter this issue:
+This error occurs when the Docker container cannot find CUDA libraries from the host system. The issue has been fixed by:
 
-1. Make sure you're using the latest version of the Dockerfile
-2. Rebuild without cache:
+1. **Mounting CUDA libraries from host**: The `docker-compose.yml` now includes a volume mount for `/usr/local/cuda` directory
+2. **Setting LD_LIBRARY_PATH**: The environment variable `LD_LIBRARY_PATH` is set to include CUDA library paths
+3. **Preserving essential CUDA libraries**: The Dockerfile preserves CUDA runtime libraries (libcudnn, libcurand, libcublas, etc.) that PyTorch requires
+
+**Solution steps:**
+
+1. **Verify CUDA is installed on your Jetson Nano** (comes with JetPack):
+```bash
+ls /usr/local/cuda/lib64/libcurand.so.10
+```
+
+2. **Ensure you're using the latest docker-compose.yml** with CUDA volume mounts:
+```yaml
+volumes:
+  - /usr/local/cuda:/usr/local/cuda:ro
+environment:
+  - LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+```
+
+3. **Rebuild without cache**:
 ```bash
 docker compose down
 docker compose build --no-cache
 docker compose up
 ```
 
-3. Ensure NVIDIA Container Runtime is properly installed on your Jetson Nano:
+4. **Verify NVIDIA Container Runtime is properly installed**:
 ```bash
 # Check if nvidia runtime is available
 docker info | grep -i runtime
@@ -285,6 +308,11 @@ docker info | grep -i runtime
 # Test NVIDIA runtime
 docker run --rm --runtime nvidia nvcr.io/nvidia/l4t-base:r32.7.1 nvidia-smi
 ```
+
+If the issue persists, ensure that:
+- JetPack is fully installed on your Jetson Nano
+- CUDA version matches the PyTorch version in the base image (CUDA 10.2 for L4T PyTorch r32.7.1)
+- The host CUDA libraries are accessible and not corrupted
 
 ### Docker Build GPG Key Error
 If you encounter a GPG key verification error during Docker build:
