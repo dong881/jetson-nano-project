@@ -4,6 +4,9 @@ FROM nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3
 # Set working directory
 WORKDIR /app
 
+# Remove problematic Kitware repository to fix GPG key error
+RUN rm -f /etc/apt/sources.list.d/kitware.list
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3-pygame \
