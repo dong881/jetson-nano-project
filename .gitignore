@@ -32,10 +32,14 @@ env/
 .vscode/
 
 # Model files (keep directory structure but ignore large model files if needed)
-# model/*.pth
+model/*.pth
 
 # High score file (user generated)
 # high_score.txt
+
+# Screenshots (generated files)
+*.png
+*.jpg
 
 # Jupyter Notebook
 .ipynb_checkpoints
