@@ -83,6 +83,7 @@ python main.py
 This project includes a Dockerfile optimized for Jetson Nano with CUDA support. The docker-compose.yml is configured to:
 - Use NVIDIA Container Runtime for GPU access
 - Mount CUDA libraries from the host system to avoid library conflicts
+- Mount aarch64 libraries which may contain CUDA files on Jetson Nano
 - Set proper environment variables for CUDA library paths
 
 1. **Prerequisites**:
@@ -134,6 +135,7 @@ docker run --runtime nvidia \
   -e LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
   -v /usr/local/cuda:/usr/local/cuda:ro \
+  -v /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro \
   -v $(pwd)/model:/app/model \
   -v $(pwd)/high_score.txt:/app/high_score.txt \
   --network host \
@@ -289,9 +291,12 @@ ls /usr/local/cuda/lib64/libcurand.so.10
 ```yaml
 volumes:
   - /usr/local/cuda:/usr/local/cuda:ro
+  - /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro
 environment:
   - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
+
+The `/usr/lib/aarch64-linux-gnu` mount is important for Jetson Nano as some CUDA libraries may be located there.
 
 3. **Rebuild without cache**:
 ```bash
