@@ -8,9 +8,12 @@ services:
       - DISPLAY=${DISPLAY}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
+      # Set CUDA library path. The ${VAR:+expansion} syntax safely handles unset variables.
+      # Requires Docker Compose 3.x or higher (specified in version above).
       - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # Mount CUDA libraries from host system (read-only) to fix libcurand.so.10 error
       - /usr/local/cuda:/usr/local/cuda:ro
       - ./model:/app/model
       - ./high_score.txt:/app/high_score.txt
