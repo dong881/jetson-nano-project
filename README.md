@@ -94,7 +94,7 @@ xhost +local:docker
 
 3. **Build and run with Docker Compose**:
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 Or build and run manually:
@@ -179,7 +179,7 @@ jetson-nano-project/
 ├── model.py             # Neural network and trainer
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile          # Docker image for Jetson Nano
-├── docker-compose.yml  # Docker compose configuration
+├── docker-compose.yml  # Docker Compose configuration
 ├── model/              # Saved models directory (created automatically)
 └── high_score.txt      # Persistent high score (created automatically)
 ```
@@ -239,7 +239,7 @@ The project is optimized for Jetson Nano with:
 ## Troubleshooting
 
 ### Docker Build GPG Key Error
-If you encounter a GPG key verification error during `docker-compose up --build`:
+If you encounter a GPG key verification error during `docker compose up --build`:
 ```
 E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
 ```
@@ -249,8 +249,8 @@ This has been fixed in the latest Dockerfile by comprehensively removing all Kit
 1. Make sure you're using the latest version of the Dockerfile
 2. Try rebuilding without cache:
 ```bash
-docker-compose build --no-cache
-docker-compose up
+docker compose build --no-cache
+docker compose up
 ```
 
 ### Display Issues with Docker
@@ -272,8 +272,8 @@ If you still encounter this issue:
 1. Make sure you're using the latest version of the Dockerfile
 2. Rebuild without cache:
 ```bash
-docker-compose build --no-cache
-docker-compose up
+docker compose build --no-cache
+docker compose up
 ```
 
 ### CUDA Not Available
