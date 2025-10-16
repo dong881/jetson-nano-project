@@ -5,7 +5,11 @@ FROM nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3
 WORKDIR /app
 
 # Remove problematic Kitware repository to fix GPG key error
-RUN rm -f /etc/apt/sources.list.d/kitware.list
+# This comprehensively removes all Kitware repository references that may cause GPG key errors
+RUN rm -f /etc/apt/sources.list.d/kitware.list* && \
+    find /etc/apt/sources.list.d/ -type f -name '*kitware*' -delete && \
+    sed -i '/kitware/d' /etc/apt/sources.list 2>/dev/null || true && \
+    apt-key del 16FAAD7AF99A65E2 2>/dev/null || true
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
