@@ -94,7 +94,30 @@ xhost +local:docker
 
 3. **Build and run with Docker Compose**:
 ```bash
-docker compose up --build
+# Build the Docker image
+docker compose build
+
+# Run the container
+docker compose up
+```
+
+**To rebuild and replace an old image** (recommended to save disk space):
+```bash
+# Remove old containers and images
+docker compose down
+docker compose build --no-cache
+
+# Run the new container
+docker compose up
+```
+
+**To clean up unused Docker images** (saves disk space):
+```bash
+# Remove all stopped containers and unused images
+docker system prune -a
+
+# Or specifically remove old images of this project
+docker rmi $(docker images -q snake-game)
 ```
 
 Or build and run manually:
@@ -238,8 +261,33 @@ The project is optimized for Jetson Nano with:
 
 ## Troubleshooting
 
+### CUDA Library Error (libcurand.so.10)
+If you encounter an error like:
+```
+OSError: libcurand.so.10: cannot open shared object file: No such file or directory
+```
+
+This has been fixed in the latest Dockerfile by preserving CUDA runtime libraries (libcudnn, libcurand, libcublas, etc.) that PyTorch requires while removing only conflicting libraries. If you still encounter this issue:
+
+1. Make sure you're using the latest version of the Dockerfile
+2. Rebuild without cache:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+3. Ensure NVIDIA Container Runtime is properly installed on your Jetson Nano:
+```bash
+# Check if nvidia runtime is available
+docker info | grep -i runtime
+
+# Test NVIDIA runtime
+docker run --rm --runtime nvidia nvcr.io/nvidia/l4t-base:r32.7.1 nvidia-smi
+```
+
 ### Docker Build GPG Key Error
-If you encounter a GPG key verification error during `docker compose up --build`:
+If you encounter a GPG key verification error during Docker build:
 ```
 E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
 ```
@@ -249,6 +297,7 @@ This has been fixed in the latest Dockerfile by comprehensively removing all Kit
 1. Make sure you're using the latest version of the Dockerfile
 2. Try rebuilding without cache:
 ```bash
+docker compose down
 docker compose build --no-cache
 docker compose up
 ```
@@ -272,6 +321,7 @@ If you still encounter this issue:
 1. Make sure you're using the latest version of the Dockerfile
 2. Rebuild without cache:
 ```bash
+docker compose down
 docker compose build --no-cache
 docker compose up
 ```
