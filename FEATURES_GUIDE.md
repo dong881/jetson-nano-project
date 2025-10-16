@@ -109,9 +109,10 @@ REWARD_PARAMS['my_profile'] = {
     'closer_to_food_reward': 0.3,
     'description': 'My custom reward profile'
 }
-```
 
-Then in `main.py`, change `DEFAULT_REWARD_PROFILE` to `'my_profile'`.
+# Update the default profile
+DEFAULT_REWARD_PROFILE = 'my_profile'
+```
 
 ### 6. Policy Visualization
 
@@ -176,7 +177,6 @@ You can create custom training scripts using the new classes:
 ```python
 from snake_game import SnakeGameAI
 from advanced_agents import PPOAgent
-from config import REWARD_PARAMS
 
 # Create game with custom settings
 game = SnakeGameAI(640, 480, 
