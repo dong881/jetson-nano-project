@@ -268,12 +268,57 @@ export DISPLAY=:99
 
 ## Future Enhancements
 
-- [ ] Multiple difficulty levels
-- [ ] Different RL algorithms (PPO, A3C)
-- [ ] Leaderboard system
-- [ ] Multi-agent training
-- [ ] Custom reward shaping
-- [ ] Visualization of learned policy
+### Implemented Features ✅
+
+- ✅ **Multiple difficulty levels**: Easy, Medium, Hard with different speeds and board sizes
+- ✅ **Different RL algorithms**: DQN, PPO (Proximal Policy Optimization), A3C (Advantage Actor-Critic)
+- ✅ **Leaderboard system**: Track top 10 scores across sessions with JSON persistence
+- ✅ **Multi-agent training**: Train 2-4 agents simultaneously on the same board
+- ✅ **Custom reward shaping**: Four reward profiles (default, encouraging, strict, shaped)
+- ✅ **Visualization of learned policy**: Real-time Q-values and decision-making display
+
+### How to Use New Features
+
+#### Difficulty Levels
+Click the "Difficulty" button or press `D` to cycle through:
+- **Easy**: Slower speed (10), larger board
+- **Medium**: Default settings (15)
+- **Hard**: Faster speed (25), smaller board
+
+#### RL Algorithms
+Click the "Algorithm" button or press `A` to switch between:
+- **DQN**: Deep Q-Network (default)
+- **PPO**: Proximal Policy Optimization
+- **A3C**: Advantage Actor-Critic
+
+#### Leaderboard
+- Click "Toggle Leaderboard" or press `L` to view top scores
+- Tracks scores by mode (human/DQN/PPO/A3C) and difficulty
+- Automatically saves top 10 scores to `leaderboard.json`
+
+#### Policy Visualization
+- Click "Toggle Policy Viz" or press `V` to show/hide
+- Displays Q-values for current state in training mode
+- Shows which action the AI is choosing and why
+
+#### Multi-Agent Training
+Run the multi-agent demo:
+```bash
+python multi_agent_demo.py 2 10  # 2 agents, 10 episodes
+```
+
+#### Custom Reward Shaping
+Modify `config.py` to create custom reward profiles:
+- `food_reward`: Reward for eating food (default: 10)
+- `death_penalty`: Penalty for dying (default: -10)
+- `step_penalty`: Penalty per step (default: 0)
+- `closer_to_food_reward`: Reward for moving closer to food (default: 0)
+
+### Keyboard Shortcuts
+- `L`: Toggle leaderboard
+- `D`: Cycle difficulty
+- `A`: Cycle algorithm
+- `V`: Toggle policy visualization
 
 ## License
 
