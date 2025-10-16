@@ -51,8 +51,11 @@ chmod +x setup_jetson.sh
 # 1. 允許 X11 連接 (Allow X11 connections)
 xhost +local:docker
 
-# 2. 使用 Docker Compose 構建並運行 (Build and run with Docker Compose)
-docker-compose up --build
+# 2. 構建 Docker 映像 (Build Docker image)
+docker compose build
+
+# 3. 使用 Docker Compose 運行 (Run with Docker Compose)
+docker compose up
 ```
 
 ---
@@ -258,8 +261,8 @@ python demo.py
 
 ### Docker 構建 GPG 金鑰錯誤 (Docker Build GPG Key Error)
 
-如果在執行 `docker-compose up --build` 時遇到 GPG 金鑰驗證錯誤：
-If you encounter a GPG key verification error during `docker-compose up --build`:
+如果在執行 Docker 構建時遇到 GPG 金鑰驗證錯誤：
+If you encounter a GPG key verification error during Docker build:
 
 ```
 E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
@@ -274,8 +277,9 @@ This has been fixed in the latest Dockerfile. If you still encounter this issue:
 2. 嘗試無快取重建：
    Try rebuilding without cache:
 ```bash
-docker-compose build --no-cache
-docker-compose up
+docker compose down
+docker compose build --no-cache
+docker compose up
 ```
 
 ### NVIDIA Docker 運行時庫衝突 (NVIDIA Docker Runtime Library Conflict)
@@ -296,8 +300,9 @@ If you still encounter this issue:
 2. 嘗試無快取重建：
    Try rebuilding without cache:
 ```bash
-docker-compose build --no-cache
-docker-compose up
+docker compose down
+docker compose build --no-cache
+docker compose up
 ```
 
 ### Docker 顯示問題 (Docker Display Issues)
