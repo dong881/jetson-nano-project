@@ -266,7 +266,7 @@ If you encounter an error like:
 nvidia-container-cli: mount error: file creation failed: /var/lib/docker/overlay2/.../merged/usr/lib/libvisionworks.so: file exists
 ```
 
-This issue has been fixed in the latest Dockerfile. The error occurs when the NVIDIA container runtime tries to mount libraries that already exist in the container image. The fix removes conflicting NVIDIA libraries during the build process, allowing the runtime to mount fresh copies from the host.
+This issue has been fixed in the latest Dockerfile. The error occurs when the NVIDIA container runtime tries to mount libraries that already exist in the container image. The fix removes conflicting NVIDIA libraries during the build process, allowing the runtime to mount fresh copies from the host. **Note:** This is safe because the nvidia-container-runtime will provide these libraries from the host system at runtime, ensuring full GPU functionality is maintained.
 
 If you still encounter this issue:
 1. Make sure you're using the latest version of the Dockerfile
