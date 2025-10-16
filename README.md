@@ -134,6 +134,7 @@ docker run --runtime nvidia \
   -e LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
   -v /usr/local/cuda:/usr/local/cuda:ro \
+  -v /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro \
   -v $(pwd)/model:/app/model \
   -v $(pwd)/high_score.txt:/app/high_score.txt \
   --network host \
@@ -289,6 +290,7 @@ ls /usr/local/cuda/lib64/libcurand.so.10
 ```yaml
 volumes:
   - /usr/local/cuda:/usr/local/cuda:ro
+  - /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro
 environment:
   - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
