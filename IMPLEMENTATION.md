@@ -88,7 +88,7 @@ This project implements a complete Snake game with both human playable mode and 
   - GPU-accelerated training
   - Optimized for Jetson Nano
 
-#### Docker Deployment (部屬成 docker 更方便一鍵部屬)
+#### Docker Deployment (部署成 docker 更方便一鍵部署)
 - ✅ **Docker Configuration**
   - `Dockerfile` - Jetson Nano optimized
   - Based on `nvcr.io/nvidia/l4t-pytorch`
