@@ -1,6 +1,10 @@
 # Dockerfile for Jetson Nano with CUDA support
 FROM nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3
 
+# Set UTF-8 locale environment variables to prevent Unicode encoding errors
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+
 # Set working directory
 WORKDIR /app
 
@@ -26,7 +30,12 @@ COPY requirements.txt .
 
 # Install Python dependencies
 # Note: PyTorch is already included in the base image for Jetson Nano
-RUN pip3 install --no-cache-dir pygame numpy
+# Upgrade pip to latest version to ensure better package compatibility
+RUN pip3 install --upgrade pip
+
+# Install pygame and numpy with --prefer-binary flag to use wheel packages
+# This avoids compilation issues and Unicode encoding errors during extraction
+RUN pip3 install --no-cache-dir --prefer-binary pygame numpy
 
 # Copy project files
 COPY . .
