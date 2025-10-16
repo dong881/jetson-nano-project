@@ -7,6 +7,7 @@ import numpy as np
 from enum import Enum
 from collections import namedtuple
 import time
+from config import DIFFICULTY_LEVELS, REWARD_PARAMS, DEFAULT_DIFFICULTY, DEFAULT_REWARD_PROFILE
 
 pygame.init()
 font = pygame.font.Font(None, 36)
@@ -36,15 +37,26 @@ class SnakeGameAI:
     Snake game with both human playable mode and API for RL agents
     """
     
-    def __init__(self, w=640, h=480):
+    def __init__(self, w=640, h=480, difficulty='medium', reward_profile='default'):
         self.w = w
         self.h = h
+        self.difficulty = difficulty
+        self.reward_profile = reward_profile
+        
+        # Get difficulty settings
+        diff_settings = DIFFICULTY_LEVELS.get(difficulty, DIFFICULTY_LEVELS['medium'])
+        self.game_speed = diff_settings['speed']
+        
+        # Get reward parameters
+        self.reward_params = REWARD_PARAMS.get(reward_profile, REWARD_PARAMS['default'])
+        
         # Display
         self.display = pygame.display.set_mode((self.w, self.h))
         pygame.display.set_caption('Snake Game - RL Training')
         self.clock = pygame.time.Clock()
         self.reset()
         self.high_score = 0
+        self.prev_distance_to_food = 0
         
     def reset(self):
         """Reset the game to initial state"""
@@ -60,6 +72,7 @@ class SnakeGameAI:
         self.food = None
         self._place_food()
         self.frame_iteration = 0
+        self.prev_distance_to_food = self._get_distance_to_food()
         
     def _place_food(self):
         """Place food randomly on the board"""
@@ -68,6 +81,10 @@ class SnakeGameAI:
         self.food = Point(x, y)
         if self.food in self.snake:
             self._place_food()
+    
+    def _get_distance_to_food(self):
+        """Calculate Manhattan distance to food"""
+        return abs(self.head.x - self.food.x) + abs(self.head.y - self.food.y)
             
     def play_step(self, action):
         """
@@ -92,24 +109,31 @@ class SnakeGameAI:
         self.snake.insert(0, self.head)
         
         # 3. Check if game over
-        reward = 0
+        reward = self.reward_params['step_penalty']  # Apply step penalty
         game_over = False
         if self.is_collision() or self.frame_iteration > 100*len(self.snake):
             game_over = True
-            reward = -10
+            reward = self.reward_params['death_penalty']
             return reward, game_over, self.score
             
         # 4. Place new food or just move
         if self.head == self.food:
             self.score += 1
-            reward = 10
+            reward = self.reward_params['food_reward']
             self._place_food()
+            self.prev_distance_to_food = self._get_distance_to_food()
         else:
             self.snake.pop()
+            # Apply distance-based reward if enabled
+            if self.reward_params['closer_to_food_reward'] > 0:
+                current_distance = self._get_distance_to_food()
+                if current_distance < self.prev_distance_to_food:
+                    reward += self.reward_params['closer_to_food_reward']
+                self.prev_distance_to_food = current_distance
         
         # 5. Update ui and clock
         self._update_ui()
-        self.clock.tick(SPEED)
+        self.clock.tick(self.game_speed)
         
         # 6. Return game over and score
         return reward, game_over, self.score
@@ -244,9 +268,15 @@ class SnakeGameHuman:
     Snake game for human players with keyboard controls
     """
     
-    def __init__(self, w=640, h=480):
+    def __init__(self, w=640, h=480, difficulty='medium'):
         self.w = w
         self.h = h
+        self.difficulty = difficulty
+        
+        # Get difficulty settings
+        diff_settings = DIFFICULTY_LEVELS.get(difficulty, DIFFICULTY_LEVELS['medium'])
+        self.game_speed = diff_settings['speed']
+        
         # Display
         self.display = pygame.display.set_mode((self.w, self.h))
         pygame.display.set_caption('Snake Game - Human Play')
@@ -316,7 +346,7 @@ class SnakeGameHuman:
         
         # 5. Update ui and clock
         self._update_ui()
-        self.clock.tick(SPEED)
+        self.clock.tick(self.game_speed)
         
         # 6. Return game over and score
         return game_over, self.score
