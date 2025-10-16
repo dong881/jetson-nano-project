@@ -43,6 +43,19 @@ COPY . .
 # Create model directory
 RUN mkdir -p model
 
+# Remove conflicting NVIDIA libraries to fix runtime mount errors
+# This is a workaround for the "file exists" error when using nvidia runtime on Jetson
+# The nvidia-container-runtime will mount these libraries from the host
+RUN rm -f /usr/lib/aarch64-linux-gnu/libcuda.so* \
+    /usr/lib/aarch64-linux-gnu/libnvidia-*.so* \
+    /usr/lib/aarch64-linux-gnu/libvisionworks*.so* \
+    /usr/lib/aarch64-linux-gnu/libcudnn*.so* \
+    /usr/lib/aarch64-linux-gnu/libnvcaffe_parser*.so* \
+    /usr/lib/aarch64-linux-gnu/libnvinfer*.so* \
+    /usr/lib/aarch64-linux-gnu/libnvonnxparser*.so* \
+    /usr/lib/aarch64-linux-gnu/libnvparsers*.so* \
+    2>/dev/null || true
+
 # Set display environment variable (for X11 forwarding)
 ENV DISPLAY=:0
 

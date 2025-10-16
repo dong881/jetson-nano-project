@@ -278,6 +278,28 @@ docker-compose build --no-cache
 docker-compose up
 ```
 
+### NVIDIA Docker 運行時庫衝突 (NVIDIA Docker Runtime Library Conflict)
+
+如果遇到以下錯誤：
+If you encounter an error like:
+```
+nvidia-container-cli: mount error: file creation failed: /var/lib/docker/overlay2/.../merged/usr/lib/libvisionworks.so: file exists
+```
+
+此問題已在最新的 Dockerfile 中修復。該錯誤發生在 NVIDIA 容器運行時嘗試掛載容器映像中已存在的庫時。修復方法是在構建過程中刪除衝突的 NVIDIA 庫，允許運行時從主機掛載新副本。**注意：** 這是安全的，因為 nvidia-container-runtime 會在運行時從主機系統提供這些庫，確保完整的 GPU 功能得以維持。
+This issue has been fixed in the latest Dockerfile. The error occurs when the NVIDIA container runtime tries to mount libraries that already exist in the container image. The fix removes conflicting NVIDIA libraries during the build process, allowing the runtime to mount fresh copies from the host. **Note:** This is safe because the nvidia-container-runtime will provide these libraries from the host system at runtime, ensuring full GPU functionality is maintained.
+
+如果仍然遇到此問題：
+If you still encounter this issue:
+1. 確保使用最新版本的 Dockerfile
+   Make sure you're using the latest version of the Dockerfile
+2. 嘗試無快取重建：
+   Try rebuilding without cache:
+```bash
+docker-compose build --no-cache
+docker-compose up
+```
+
 ### Docker 顯示問題 (Docker Display Issues)
 
 ```bash
