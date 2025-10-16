@@ -256,6 +256,28 @@ python demo.py
 
 ## 故障排除 (Troubleshooting)
 
+### Docker 構建 GPG 金鑰錯誤 (Docker Build GPG Key Error)
+
+如果在執行 `docker-compose up --build` 時遇到 GPG 金鑰驗證錯誤：
+If you encounter a GPG key verification error during `docker-compose up --build`:
+
+```
+E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
+```
+
+此問題已在最新的 Dockerfile 中修復。如果仍然遇到此問題：
+This has been fixed in the latest Dockerfile. If you still encounter this issue:
+
+1. 確保使用最新版本的 Dockerfile
+   Make sure you're using the latest version of the Dockerfile
+
+2. 嘗試無快取重建：
+   Try rebuilding without cache:
+```bash
+docker-compose build --no-cache
+docker-compose up
+```
+
 ### Docker 顯示問題 (Docker Display Issues)
 
 ```bash

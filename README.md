@@ -238,6 +238,21 @@ The project is optimized for Jetson Nano with:
 
 ## Troubleshooting
 
+### Docker Build GPG Key Error
+If you encounter a GPG key verification error during `docker-compose up --build`:
+```
+E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
+```
+
+This has been fixed in the latest Dockerfile by comprehensively removing all Kitware repository references. If you still encounter this issue:
+
+1. Make sure you're using the latest version of the Dockerfile
+2. Try rebuilding without cache:
+```bash
+docker-compose build --no-cache
+docker-compose up
+```
+
 ### Display Issues with Docker
 If you get display errors:
 ```bash
