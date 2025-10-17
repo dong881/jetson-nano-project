@@ -1,4 +1,4 @@
-# Fix Summary: CUDA Library Path Configuration
+# Fix Summary: CUDA Library Symlink Issue
 
 ## Problem
 The application was failing with:
@@ -8,32 +8,34 @@ jetson-nano-project-snake-game-1 exited with code 1
 ```
 
 ## Root Cause
-The Dockerfile did not configure `LD_LIBRARY_PATH` to include CUDA library locations. While docker-compose.yml set this as an environment variable, PyTorch imports during container startup before those environment variables were fully processed, causing it to fail finding CUDA libraries.
+PyTorch requires CUDA libraries with specific version symlinks (e.g., `libcurand.so.10`), but the host CUDA installation only provides libraries with more specific versions (e.g., `libcurand.so.10.0` or `libcurand.so.10.0.326`). The intermediate version symlinks that PyTorch expects are missing.
+
+Additionally, since `/usr/local/cuda` is mounted as read-only from the host, the container cannot create these symlinks in the mounted directory.
 
 ## Solution Implemented
 
 ### 1. Dockerfile Changes
-- **Added** `ENV LD_LIBRARY_PATH` with comprehensive CUDA paths:
+- **Updated** `ENV LD_LIBRARY_PATH` to include `/usr/local/lib` at the beginning:
   ```dockerfile
-  ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+  ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
   ```
-- **Removed** CUDA stub libraries that could conflict with nvidia-container-runtime
-- **Created** `check_cuda.sh` startup diagnostics script
-- **Updated** CMD to run diagnostics before starting the application
+  This allows runtime-created symlinks in `/usr/local/lib` to be found first.
 
-### 2. docker-compose.yml Changes
-- **Removed** redundant LD_LIBRARY_PATH environment variable (now in Dockerfile)
-- **Kept** `/usr/local/cuda` volume mount for accessing host CUDA libraries
+### 2. check_cuda.sh Changes
+- **Added** `create_cuda_symlinks()` function that:
+  - Creates `/usr/local/lib` directory (writable location)
+  - Searches for CUDA libraries in multiple locations
+  - Creates missing version symlinks (e.g., `libcurand.so.10 -> libcurand.so.10.0.326`)
+  - Handles multiple CUDA libraries: libcurand, libcublas, libcublasLt, libcudnn
+  - Updates LD_LIBRARY_PATH if needed
+- **Integrated** symlink creation into the startup diagnostics
 
-### 3. New Tools Created
-- **`check_cuda.sh`**: Startup script that checks for CUDA libraries and provides helpful error messages if they're missing
-- **`verify_jetson_setup.sh`**: Pre-deployment verification script that checks all prerequisites on Jetson Nano
-
-### 4. Documentation Updates
-- Enhanced **TROUBLESHOOTING.md** with detailed CUDA troubleshooting steps
-- Updated **DEPENDENCIES.md** with LD_LIBRARY_PATH documentation
-- Updated **README.md** and **QUICKSTART.md** with verification instructions
-- Added comprehensive entry to **CHANGELOG.md**
+### 3. How It Works
+1. Container starts and check_cuda.sh runs
+2. Script finds CUDA libraries in read-only `/usr/local/cuda`
+3. Script creates symlinks in writable `/usr/local/lib` (e.g., `libcurand.so.10 -> /usr/local/cuda/lib64/libcurand.so.10.0.326`)
+4. PyTorch can now find `libcurand.so.10` via the symlink
+5. Application starts successfully
 
 ## How to Deploy
 
@@ -41,25 +43,13 @@ The Dockerfile did not configure `LD_LIBRARY_PATH` to include CUDA library locat
 
 1. **Pull the latest changes**:
    ```bash
-   git pull origin copilot/fix-snake-game-issues
+   git pull origin copilot/fix-errors-in-docker-compose
    ```
 
-2. **Run the verification script** (recommended):
-   ```bash
-   chmod +x verify_jetson_setup.sh
-   ./verify_jetson_setup.sh
-   ```
-   
-   This will check:
-   - JetPack/L4T version
-   - CUDA installation
-   - Docker and nvidia-container-runtime
-   - X11 configuration
-
-3. **Build and run**:
+2. **Build and run**:
    ```bash
    xhost +local:docker
-   docker compose down  # Stop any old containers
+   docker compose down
    docker compose build --no-cache
    docker compose up
    ```
@@ -71,13 +61,19 @@ The Dockerfile did not configure `LD_LIBRARY_PATH` to include CUDA library locat
 ======================================== 
 CUDA Library Configuration Check
 ========================================
-LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:...
+LD_LIBRARY_PATH: /usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:...
 
 Searching for CUDA libraries...
 Found libcurand in: /usr/local/cuda/lib64
--rw-r--r-- 1 root root 57M ... libcurand.so.10.2.89
-lrwxrwxrwx 1 root root  20 ... libcurand.so.10 -> libcurand.so.10.2.89
+lrwxrwxrwx 1 root root  17 ... libcurand.so -> libcurand.so.10.0
+lrwxrwxrwx 1 root root  21 ... libcurand.so.10.0 -> libcurand.so.10.0.326
+-rw-r--r-- 1 root root 61M ... libcurand.so.10.0.326
 ✓ CUDA libraries found
+
+Checking for missing CUDA library symlinks...
+Creating symlink: /usr/local/lib/libcurand.so.10 -> /usr/local/cuda/lib64/libcurand.so.10.0.326
+Creating symlink: /usr/local/lib/libcublas.so.10 -> /usr/local/cuda/lib64/libcublas.so.10.0.xxx
+✓ CUDA symlinks check complete
 
 ========================================
 Starting Snake Game Application
@@ -85,11 +81,11 @@ Starting Snake Game Application
 
 pygame 2.1.2 (SDL 2.0.16, Python 3.6.9)
 Hello from the pygame community. https://www.pygame.org/contribute.html
-[Game window opens]
+[Game window opens successfully]
 ```
 
 ### If CUDA Libraries Not Found:
-The startup script will show a warning but continue:
+The startup script will show a warning:
 ```
 ⚠ WARNING: libcurand not found in expected locations
 
@@ -117,59 +113,83 @@ Continuing anyway - the application may fail...
    
    If this doesn't exist, you need to install JetPack 4.6.x
 
-2. **Check nvidia-container-runtime**:
+2. **Verify symlinks were created**:
+   ```bash
+   docker compose up
+   # Look for "Creating symlink: /usr/local/lib/libcurand.so.10 -> ..." in output
+   ```
+
+3. **Check nvidia-container-runtime**:
    ```bash
    docker info | grep -i runtime
    # Should show: Runtimes: nvidia runc
    ```
 
-3. **Check Docker logs**:
+4. **Check Docker logs**:
    ```bash
    docker compose logs
    ```
 
-4. **See detailed troubleshooting**:
+5. **See detailed troubleshooting**:
    Refer to `TROUBLESHOOTING.md` for comprehensive solutions
 
 ## Files Changed
 
 ### Modified:
-- `Dockerfile` - Added LD_LIBRARY_PATH, removed stub libraries
-- `docker-compose.yml` - Simplified configuration
-- `TROUBLESHOOTING.md` - Enhanced CUDA troubleshooting
-- `DEPENDENCIES.md` - Added LD_LIBRARY_PATH docs
-- `README.md` - Added verification instructions
-- `QUICKSTART.md` - Added verification step
-- `CHANGELOG.md` - Documented all changes
-
-### Created:
-- `check_cuda.sh` - Startup diagnostics script
-- `verify_jetson_setup.sh` - Pre-deployment verification script
-- `FIX_SUMMARY.md` - This file
+- `Dockerfile` - Added `/usr/local/lib` to LD_LIBRARY_PATH
+- `check_cuda.sh` - Added automatic CUDA symlink creation
+- `TROUBLESHOOTING.md` - Enhanced documentation with symlink fix details
+- `FIX_SUMMARY.md` - This file (updated)
 
 ## Why This Fix Works
 
-1. **LD_LIBRARY_PATH in Dockerfile**: Ensures the path is set during image build, before PyTorch tries to load
-2. **Multiple library paths**: Covers different possible CUDA installation locations
-3. **Startup diagnostics**: Provides immediate feedback if something is wrong
-4. **Pre-deployment verification**: Catches issues before attempting to run the container
-5. **Better documentation**: Users can troubleshoot issues themselves
+1. **Writable Location for Symlinks**: `/usr/local/lib` is writable, allowing symlink creation at runtime
+2. **Automatic Detection**: Script finds actual library files regardless of their exact version
+3. **Handles Multiple Libraries**: Creates symlinks for all CUDA libraries PyTorch might need
+4. **Non-Intrusive**: Doesn't modify the read-only mounted CUDA directory from host
+5. **LD_LIBRARY_PATH Priority**: `/usr/local/lib` is first in path, so symlinks are found before other locations
+
+## Technical Details
+
+### Why PyTorch Looks for libcurand.so.10
+PyTorch is compiled against specific CUDA library versions. When it tries to load CUDA libraries, it uses the version it was compiled with (CUDA 10.x). The dynamic linker looks for:
+1. `libcurand.so.10` (minor version specific)
+2. `libcurand.so` (generic version)
+
+If the host only has `libcurand.so.10.0` or `libcurand.so.10.0.326`, the linker can't find `libcurand.so.10` unless there's a symlink.
+
+### Why Read-Only Mount
+The `/usr/local/cuda` directory is mounted read-only (`ro`) from the host to:
+- Prevent accidental modifications to the host's CUDA installation
+- Ensure container doesn't interfere with host system
+- Follow security best practices for container volumes
+
+### Solution Pattern
+This fix follows a common pattern for handling library version mismatches in containers:
+1. Mount libraries from host (read-only for safety)
+2. Create version-specific symlinks in a writable container location
+3. Ensure writable location is in LD_LIBRARY_PATH before read-only locations
 
 ## Prevention for Future
 
-- Always set critical environment variables like LD_LIBRARY_PATH in the Dockerfile, not just docker-compose.yml
-- Include startup diagnostics for complex dependencies like CUDA
-- Provide verification scripts for prerequisite checks
-- Document expected behavior and common issues
+- Always include intermediate version symlinks in library distributions
+- Test container startup with actual library loading, not just file existence checks
+- Document library version dependencies clearly
+- Provide runtime diagnostics that explain issues and show what's being done to fix them
 
 ## Next Steps
 
 After successful deployment:
 1. Verify the game runs correctly in human mode
 2. Test the training mode to ensure CUDA acceleration works
-3. Check PyTorch CUDA availability with the game's diagnostics
+3. Check PyTorch CUDA availability:
+   ```python
+   import torch
+   print(torch.cuda.is_available())  # Should be True
+   print(torch.cuda.get_device_name(0))  # Should show GPU name
+   ```
 
 If issues persist, please:
-1. Run `./verify_jetson_setup.sh` and share the output
-2. Run `docker compose logs` and share the full logs
+1. Run `docker compose logs` and share the full startup output
+2. Check if symlinks were created: `docker compose exec snake-game ls -la /usr/local/lib/`
 3. Open a GitHub issue with the diagnostic information
