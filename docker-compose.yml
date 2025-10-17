@@ -15,8 +15,8 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       # Mount CUDA libraries from host system (read-only) to fix libcurand.so.10 error
       - /usr/local/cuda:/usr/local/cuda:ro
-      # Mount aarch64 libraries which may contain CUDA files on Jetson Nano
-      - /usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu:ro
+      # Note: Removed /usr/lib/aarch64-linux-gnu mount to allow nvidia-container-runtime
+      # to inject NVIDIA libraries. The Dockerfile already removes conflicting libraries.
       - ./model:/app/model
       - ./high_score.txt:/app/high_score.txt
     network_mode: host
