@@ -23,12 +23,14 @@ OSError: libcurand.so.10: cannot open shared object file: No such file or direct
 ```
 
 **Cause:**
-The Docker container cannot find CUDA libraries from the host system. This typically happens when:
-1. CUDA libraries are not properly mounted from the host
-2. JetPack is not fully installed on the host
-3. nvidia-container-runtime is not properly configured
+PyTorch is looking for `libcurand.so.10` but the host CUDA installation only has `libcurand.so.10.0` or `libcurand.so.10.0.326` with incomplete symlinks. This happens when:
+1. The host CUDA installation is missing intermediate version symlinks
+2. CUDA libraries are mounted read-only, preventing symlink creation in the mounted directory
+3. JetPack is not fully installed or has been partially updated
 
 **Solution:**
+
+The latest version of the project includes an automatic fix in the `check_cuda.sh` startup script that creates the necessary symlinks at runtime.
 
 **1. Verify JetPack is installed on your Jetson Nano**
 
@@ -72,7 +74,7 @@ sudo systemctl restart docker
 
 **3. Rebuild with the latest configuration**
 
-The latest Dockerfile and docker-compose.yml have been updated to properly handle CUDA library paths:
+The latest Dockerfile and check_cuda.sh script have been updated to automatically create missing CUDA library symlinks:
 
 ```bash
 # Clean rebuild
@@ -83,18 +85,20 @@ docker compose up
 
 **4. Check the startup diagnostics**
 
-When the container starts, it will now show CUDA library diagnostics:
+When the container starts, it will now show CUDA library diagnostics and create missing symlinks:
 
 ```bash
 docker compose up
 # Look for "CUDA Library Configuration Check" in the output
-# It will show if libraries are found and where
+# It will show if libraries are found and if symlinks were created
 ```
 
 **What the fix does:**
 
 The updated configuration:
-- Sets `LD_LIBRARY_PATH` to include multiple CUDA library locations
+- Sets `LD_LIBRARY_PATH` to include `/usr/local/lib` for runtime-created symlinks
+- Automatically detects missing CUDA library version symlinks
+- Creates symlinks like `libcurand.so.10 -> libcurand.so.10.0.326` in `/usr/local/lib`
 - Mounts `/usr/local/cuda` from the host (where JetPack installs CUDA)
 - Uses nvidia-container-runtime to inject GPU drivers
 - Includes a startup script that checks for CUDA libraries and provides helpful error messages
@@ -107,13 +111,19 @@ The updated configuration:
    find /usr -name "libcurand.so*" 2>/dev/null
    ```
 
-2. **If CUDA is in a different location**, update docker-compose.yml:
+2. **Verify the symlinks were created:**
+   ```bash
+   docker compose up
+   # Look for messages like "Creating symlink: /usr/local/lib/libcurand.so.10 -> ..."
+   ```
+
+3. **If CUDA is in a different location**, update docker-compose.yml:
    ```yaml
    volumes:
      - /your/cuda/path:/usr/local/cuda:ro
    ```
 
-3. **Check Docker logs for more details:**
+4. **Check Docker logs for more details:**
    ```bash
    docker compose logs
    ```
