@@ -15,7 +15,7 @@ This occurred when PyTorch tried to load CUDA libraries during import.
 
 The issue was that while the docker-compose.yml mounted `/usr/local/cuda` from the host and set `LD_LIBRARY_PATH` as an environment variable, the Dockerfile itself did not have `LD_LIBRARY_PATH` configured. This meant:
 
-1. **PyTorch loads during image build**: When the container starts, Python imports PyTorch before environment variables from docker-compose are fully available
+1. **PyTorch loads during container startup**: When the container starts, Python imports PyTorch before environment variables from docker-compose are fully processed
 2. **Missing library paths**: The base image's LD_LIBRARY_PATH didn't include all possible CUDA library locations
 3. **No diagnostics**: When the error occurred, there was no helpful information about what went wrong
 
@@ -23,7 +23,7 @@ The issue was that while the docker-compose.yml mounted `/usr/local/cuda` from t
 
 #### 1. Fixed Dockerfile LD_LIBRARY_PATH Configuration
 
-**Added to Dockerfile** (line 78):
+**Added to Dockerfile**:
 ```dockerfile
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
 ```
@@ -36,7 +36,7 @@ This ensures CUDA libraries can be found in multiple locations:
 
 #### 2. Removed CUDA Stub Libraries
 
-**Added to Dockerfile** (lines 70-73):
+**Added to Dockerfile**:
 ```dockerfile
 RUN rm -rf /usr/local/cuda-*/lib*/stubs \
     2>/dev/null || true
