@@ -28,10 +28,59 @@ find_libcurand() {
     return 1
 }
 
+# Function to create missing CUDA library symlinks
+create_cuda_symlinks() {
+    echo ""
+    echo "Checking for missing CUDA library symlinks..."
+    
+    # Create a writable directory for symlinks if needed
+    local link_dir="/usr/local/lib"
+    mkdir -p "$link_dir"
+    
+    # Check common CUDA library locations
+    local cuda_dirs=(
+        "/usr/local/cuda/lib64"
+        "/usr/local/cuda-10.2/targets/aarch64-linux/lib"
+    )
+    
+    local libs_to_link=(
+        "libcurand.so.10.0:libcurand.so.10"
+        "libcublas.so.10.0:libcublas.so.10"
+        "libcublasLt.so.10.0:libcublasLt.so.10"
+        "libcudnn.so.8:libcudnn.so.8"
+    )
+    
+    for cuda_dir in "${cuda_dirs[@]}"; do
+        if [ -d "$cuda_dir" ]; then
+            for lib_pair in "${libs_to_link[@]}"; do
+                IFS=':' read -r source_lib target_lib <<< "$lib_pair"
+                
+                # Find the source library
+                local source_path=$(find "$cuda_dir" -name "$source_lib*" -type f -o -name "$source_lib" -type l 2>/dev/null | head -1)
+                
+                if [ -n "$source_path" ] && [ ! -e "$link_dir/$target_lib" ]; then
+                    echo "Creating symlink: $link_dir/$target_lib -> $source_path"
+                    ln -sf "$source_path" "$link_dir/$target_lib"
+                fi
+            done
+        fi
+    done
+    
+    # Add our link directory to LD_LIBRARY_PATH if not already there
+    if [[ ":$LD_LIBRARY_PATH:" != *":$link_dir:"* ]]; then
+        export LD_LIBRARY_PATH="$link_dir:$LD_LIBRARY_PATH"
+        echo "Updated LD_LIBRARY_PATH to include $link_dir"
+    fi
+    
+    echo "✓ CUDA symlinks check complete"
+}
+
 # Check if CUDA libraries are accessible
 echo "Searching for CUDA libraries..."
 if find_libcurand; then
     echo "✓ CUDA libraries found"
+    # Create any missing symlinks that PyTorch might need
+    create_cuda_symlinks
 else
     echo ""
     echo "⚠ WARNING: libcurand not found in expected locations"

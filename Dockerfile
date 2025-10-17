@@ -75,7 +75,8 @@ RUN rm -rf /usr/local/cuda-*/lib*/stubs \
 # Set CUDA library path to ensure PyTorch can find CUDA libraries
 # This is critical for PyTorch to work with CUDA on Jetson Nano
 # The base image may already have LD_LIBRARY_PATH set, so we prepend our path
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+# /usr/local/lib is included for runtime-created symlinks
+ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
 
 # Set display environment variable (for X11 forwarding)
 ENV DISPLAY=:0
