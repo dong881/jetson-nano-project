@@ -56,7 +56,8 @@ create_cuda_symlinks() {
                 IFS=':' read -r source_lib target_lib <<< "$lib_pair"
                 
                 # Find the source library
-                local source_path=$(find "$cuda_dir" -name "$source_lib*" -type f -o -name "$source_lib" -type l 2>/dev/null | head -1)
+                local source_path
+                source_path=$(find "$cuda_dir" -name "$source_lib*" -type f -o -name "$source_lib" -type l 2>/dev/null | head -1)
                 
                 if [ -n "$source_path" ] && [ ! -e "$link_dir/$target_lib" ]; then
                     echo "Creating symlink: $link_dir/$target_lib -> $source_path"
