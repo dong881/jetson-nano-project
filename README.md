@@ -92,9 +92,18 @@ jetson-nano-project/
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile           # Docker image for Jetson Nano
 ├── docker-compose.yml   # Docker Compose configuration
+├── README.md            # Main documentation (this file)
 ├── QUICKSTART.md        # Quick start guide (EN/中文)
-└── TROUBLESHOOTING.md   # Troubleshooting guide
+├── TROUBLESHOOTING.md   # Troubleshooting guide
+└── DEPENDENCIES.md      # Dependency compatibility guide
 ```
+
+## Documentation
+
+- **[README.md](README.md)** (this file) - Main project documentation
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide in English and Chinese
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Detailed troubleshooting for common issues
+- **[DEPENDENCIES.md](DEPENDENCIES.md)** - Package version compatibility and requirements
 
 ## Troubleshooting
 

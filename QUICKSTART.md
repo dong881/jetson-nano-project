@@ -229,7 +229,10 @@ jetson-nano-project/
 ├── run.sh               # 快速啟動腳本
 ├── setup_jetson.sh      # Jetson Nano 設置腳本
 ├── model/               # 儲存模型的目錄
-└── README.md            # 詳細文檔
+├── README.md            # 主要文檔
+├── QUICKSTART.md        # 快速開始指南（本文件）
+├── TROUBLESHOOTING.md   # 故障排除指南
+└── DEPENDENCIES.md      # 依賴相容性指南
 ```
 
 ---
@@ -257,53 +260,38 @@ python demo.py
 
 ---
 
+## 文檔指南 (Documentation Guide)
+
+- **README.md**: 主要文檔，包含功能介紹和安裝說明
+  - Main documentation with features and installation
+  
+- **QUICKSTART.md** (本文件): 快速開始指南（中英雙語）
+  - Quick start guide (bilingual EN/中文)
+  
+- **TROUBLESHOOTING.md**: 常見問題和詳細故障排除
+  - Common issues and detailed troubleshooting
+  
+- **DEPENDENCIES.md**: 套件版本相容性詳解
+  - Package version compatibility guide
+
+---
+
 ## 故障排除 (Troubleshooting)
 
 ### Docker 構建 GPG 金鑰錯誤 (Docker Build GPG Key Error)
 
-如果在執行 Docker 構建時遇到 GPG 金鑰驗證錯誤：
-If you encounter a GPG key verification error during Docker build:
-
-```
-E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
-```
-
-此問題已在最新的 Dockerfile 中修復。如果仍然遇到此問題：
-This has been fixed in the latest Dockerfile. If you still encounter this issue:
-
-1. 確保使用最新版本的 Dockerfile
-   Make sure you're using the latest version of the Dockerfile
-
-2. 嘗試無快取重建：
-   Try rebuilding without cache:
-```bash
-docker compose down
-docker compose build --no-cache
-docker compose up
-```
+如果在執行 Docker 構建時遇到 GPG 金鑰驗證錯誤，請參閱 **TROUBLESHOOTING.md** 獲取詳細解決方案。
+If you encounter GPG key verification errors during Docker build, see **TROUBLESHOOTING.md** for detailed solutions.
 
 ### NVIDIA Docker 運行時庫衝突 (NVIDIA Docker Runtime Library Conflict)
 
-如果遇到以下錯誤：
-If you encounter an error like:
-```
-nvidia-container-cli: mount error: file creation failed: /var/lib/docker/overlay2/.../merged/usr/lib/libvisionworks.so: file exists
-```
+如果遇到庫文件衝突或 CUDA 庫錯誤，請參閱 **TROUBLESHOOTING.md** 獲取詳細解決方案。
+For library conflicts or CUDA library errors, see **TROUBLESHOOTING.md** for detailed solutions.
 
-此問題已在最新的 Dockerfile 中修復。該錯誤發生在 NVIDIA 容器運行時嘗試掛載容器映像中已存在的庫時。修復方法是在構建過程中刪除衝突的 NVIDIA 庫，允許運行時從主機掛載新副本。**注意：** 這是安全的，因為 nvidia-container-runtime 會在運行時從主機系統提供這些庫，確保完整的 GPU 功能得以維持。
-This issue has been fixed in the latest Dockerfile. The error occurs when the NVIDIA container runtime tries to mount libraries that already exist in the container image. The fix removes conflicting NVIDIA libraries during the build process, allowing the runtime to mount fresh copies from the host. **Note:** This is safe because the nvidia-container-runtime will provide these libraries from the host system at runtime, ensuring full GPU functionality is maintained.
+### 套件相容性問題 (Package Compatibility Issues)
 
-如果仍然遇到此問題：
-If you still encounter this issue:
-1. 確保使用最新版本的 Dockerfile
-   Make sure you're using the latest version of the Dockerfile
-2. 嘗試無快取重建：
-   Try rebuilding without cache:
-```bash
-docker compose down
-docker compose build --no-cache
-docker compose up
-```
+如果遇到 Python 版本或套件版本相容性問題，請參閱 **DEPENDENCIES.md** 了解詳細的相容性要求。
+For Python or package version compatibility issues, see **DEPENDENCIES.md** for detailed compatibility requirements.
 
 ### Docker 顯示問題 (Docker Display Issues)
 
