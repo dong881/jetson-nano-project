@@ -153,15 +153,33 @@ python3 -c "import torch; print(torch.cuda.get_device_name(0))"
 
 ### Issue: libcurand.so.10 not found
 
-**Cause**: CUDA libraries not mounted from host
+**Cause**: CUDA libraries not accessible to PyTorch
 
-**Solution**: Ensure docker-compose.yml has:
+**Solution**: 
+
+The latest Dockerfile sets `LD_LIBRARY_PATH` to include:
+```dockerfile
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+```
+
+This ensures CUDA libraries can be found in multiple locations.
+
+Additionally, docker-compose.yml mounts CUDA from the host:
 ```yaml
 volumes:
   - /usr/local/cuda:/usr/local/cuda:ro
-environment:
-  - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
+
+**Verification**:
+```bash
+# Start the container
+docker compose up
+
+# The startup script will check for CUDA libraries
+# Look for "CUDA Library Configuration Check" in the output
+```
+
+If CUDA is installed in a non-standard location on your Jetson Nano, update the volume mount in docker-compose.yml.
 
 ### Issue: pygame version mismatch
 

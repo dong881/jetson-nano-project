@@ -41,6 +41,9 @@ RUN pip3 install --no-cache-dir --prefer-binary -r requirements.txt
 # Copy project files
 COPY . .
 
+# Make the CUDA check script executable
+RUN chmod +x check_cuda.sh
+
 # Create model directory
 RUN mkdir -p model
 
@@ -64,8 +67,18 @@ RUN rm -f /usr/lib/aarch64-linux-gnu/libcuda.so* \
     /usr/lib/libnvparsers*.so* \
     2>/dev/null || true
 
+# Also remove any CUDA stub libraries that might conflict with host CUDA
+# The real CUDA libraries will be provided by the nvidia-container-runtime
+RUN rm -rf /usr/local/cuda-*/lib*/stubs \
+    2>/dev/null || true
+
+# Set CUDA library path to ensure PyTorch can find CUDA libraries
+# This is critical for PyTorch to work with CUDA on Jetson Nano
+# The base image may already have LD_LIBRARY_PATH set, so we prepend our path
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+
 # Set display environment variable (for X11 forwarding)
 ENV DISPLAY=:0
 
-# Run the main application
-CMD ["python3", "main.py"]
+# Run the CUDA check script which then starts the main application
+CMD ["./check_cuda.sh"]

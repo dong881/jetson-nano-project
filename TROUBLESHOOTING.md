@@ -25,44 +25,98 @@ OSError: libcurand.so.10: cannot open shared object file: No such file or direct
 **Cause:**
 The Docker container cannot find CUDA libraries from the host system. This typically happens when:
 1. CUDA libraries are not properly mounted from the host
-2. LD_LIBRARY_PATH is not set correctly
-3. JetPack is not fully installed on the host
+2. JetPack is not fully installed on the host
+3. nvidia-container-runtime is not properly configured
 
 **Solution:**
 
-1. **Verify CUDA is installed on your Jetson Nano** (comes with JetPack):
+**1. Verify JetPack is installed on your Jetson Nano**
+
+JetPack includes CUDA 10.2 which is required. Check if CUDA is installed:
+
 ```bash
-ls /usr/local/cuda/lib64/libcurand.so.10
+# Check if CUDA directory exists
+ls /usr/local/cuda/lib64/libcurand.so*
+
+# Check JetPack version
+dpkg -l | grep nvidia
+
+# Expected: cuda-10-2, cuda-toolkit-10-2, etc.
 ```
 
-2. **Check your docker-compose.yml has the correct volume mounts**:
-```yaml
-volumes:
-  - /usr/local/cuda:/usr/local/cuda:ro
-environment:
-  - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-```
+If CUDA is not installed, you need to install JetPack 4.6.x on your Jetson Nano.
 
-3. **Rebuild without cache**:
-```bash
-docker compose down
-docker compose build --no-cache
-docker compose up
-```
+**2. Verify nvidia-container-runtime is installed**
 
-4. **Verify NVIDIA Container Runtime is properly installed**:
 ```bash
 # Check if nvidia runtime is available
 docker info | grep -i runtime
+
+# Should show: Runtimes: nvidia runc
 
 # Test NVIDIA runtime
 docker run --rm --runtime nvidia nvcr.io/nvidia/l4t-base:r32.7.1 nvidia-smi
 ```
 
-**Additional Checks:**
-- Ensure JetPack 4.6.x is fully installed on your Jetson Nano
-- Verify CUDA version matches PyTorch requirements (CUDA 10.2 for L4T PyTorch r32.7.1)
-- Check that host CUDA libraries are accessible and not corrupted
+If nvidia-container-runtime is not installed, install it:
+
+```bash
+# Install nvidia-container-runtime
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update
+sudo apt-get install -y nvidia-docker2
+sudo systemctl restart docker
+```
+
+**3. Rebuild with the latest configuration**
+
+The latest Dockerfile and docker-compose.yml have been updated to properly handle CUDA library paths:
+
+```bash
+# Clean rebuild
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+**4. Check the startup diagnostics**
+
+When the container starts, it will now show CUDA library diagnostics:
+
+```bash
+docker compose up
+# Look for "CUDA Library Configuration Check" in the output
+# It will show if libraries are found and where
+```
+
+**What the fix does:**
+
+The updated configuration:
+- Sets `LD_LIBRARY_PATH` to include multiple CUDA library locations
+- Mounts `/usr/local/cuda` from the host (where JetPack installs CUDA)
+- Uses nvidia-container-runtime to inject GPU drivers
+- Includes a startup script that checks for CUDA libraries and provides helpful error messages
+
+**If the problem persists:**
+
+1. **Check CUDA location on your Jetson Nano:**
+   ```bash
+   # On the Jetson Nano host (not in Docker)
+   find /usr -name "libcurand.so*" 2>/dev/null
+   ```
+
+2. **If CUDA is in a different location**, update docker-compose.yml:
+   ```yaml
+   volumes:
+     - /your/cuda/path:/usr/local/cuda:ro
+   ```
+
+3. **Check Docker logs for more details:**
+   ```bash
+   docker compose logs
+   ```
 
 ---
 
