@@ -48,6 +48,10 @@ chmod +x setup_jetson.sh
 ### 方法 3: Docker 部署 (Method 3: Docker Deployment) - 推薦 Jetson Nano 使用
 
 ```bash
+# 0. (推薦) 驗證 Jetson Nano 設定 (Recommended: Verify Jetson Nano setup)
+chmod +x verify_jetson_setup.sh
+./verify_jetson_setup.sh
+
 # 1. 允許 X11 連接 (Allow X11 connections)
 xhost +local:docker
 
@@ -57,6 +61,12 @@ docker compose build
 # 3. 使用 Docker Compose 運行 (Run with Docker Compose)
 docker compose up
 ```
+
+如果啟動時遇到 CUDA 庫錯誤，容器會顯示診斷信息幫助排查問題。
+If you encounter CUDA library errors during startup, the container will display diagnostic information to help troubleshoot.
+
+詳細的故障排除指南請參考 [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+For detailed troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ---
 

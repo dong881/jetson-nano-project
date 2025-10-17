@@ -21,16 +21,25 @@ A complete Snake game implementation with both human playable mode and Reinforce
 
 ### Docker Installation (Recommended for Jetson Nano)
 
-1. **Allow X11 connections**:
+1. **Verify your Jetson Nano setup (Recommended)**:
+```bash
+chmod +x verify_jetson_setup.sh
+./verify_jetson_setup.sh
+```
+This will check if all prerequisites are properly configured.
+
+2. **Allow X11 connections**:
 ```bash
 xhost +local:docker
 ```
 
-2. **Build and run**:
+3. **Build and run**:
 ```bash
 docker compose build
 docker compose up
 ```
+
+The container will perform CUDA library checks on startup and provide helpful diagnostics if issues are detected.
 
 ### Standard Installation
 
@@ -85,17 +94,19 @@ python main.py
 
 ```
 jetson-nano-project/
-├── main.py              # Main UI with mode switching
-├── snake_game.py        # Game logic (Human & AI modes)
-├── agent.py             # RL Agent implementation
-├── model.py             # Neural network and trainer
-├── requirements.txt     # Python dependencies
-├── Dockerfile           # Docker image for Jetson Nano
-├── docker-compose.yml   # Docker Compose configuration
-├── README.md            # Main documentation (this file)
-├── QUICKSTART.md        # Quick start guide (EN/中文)
-├── TROUBLESHOOTING.md   # Troubleshooting guide
-└── DEPENDENCIES.md      # Dependency compatibility guide
+├── main.py                    # Main UI with mode switching
+├── snake_game.py              # Game logic (Human & AI modes)
+├── agent.py                   # RL Agent implementation
+├── model.py                   # Neural network and trainer
+├── requirements.txt           # Python dependencies
+├── Dockerfile                 # Docker image for Jetson Nano
+├── docker-compose.yml         # Docker Compose configuration
+├── check_cuda.sh              # CUDA library startup diagnostics
+├── verify_jetson_setup.sh     # Pre-deployment verification script
+├── README.md                  # Main documentation (this file)
+├── QUICKSTART.md              # Quick start guide (EN/中文)
+├── TROUBLESHOOTING.md         # Troubleshooting guide
+└── DEPENDENCIES.md            # Dependency compatibility guide
 ```
 
 ## Documentation
