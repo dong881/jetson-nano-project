@@ -29,13 +29,14 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies
-# Note: PyTorch is already included in the base image for Jetson Nano
-# Upgrade pip to latest version to ensure better package compatibility
-RUN pip3 install --upgrade pip
+# Note: PyTorch 1.10 is already included in the base image for Jetson Nano with CUDA 10.2 support
+# DO NOT reinstall torch as it will break CUDA compatibility
+# Upgrade pip to latest compatible version for Python 3.6
+RUN pip3 install --upgrade "pip<21.0"
 
-# Install pygame and numpy with --prefer-binary flag to use wheel packages
-# This avoids compilation issues and Unicode encoding errors during extraction
-RUN pip3 install --no-cache-dir --prefer-binary pygame numpy
+# Install dependencies from requirements.txt
+# Using --no-cache-dir to reduce image size and --prefer-binary to avoid compilation issues
+RUN pip3 install --no-cache-dir --prefer-binary -r requirements.txt
 
 # Copy project files
 COPY . .

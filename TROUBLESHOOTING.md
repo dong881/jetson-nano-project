@@ -1,0 +1,415 @@
+# Troubleshooting Guide
+
+This guide provides detailed solutions to common issues when running the Snake Game with RL on Jetson Nano.
+
+## Table of Contents
+
+- [CUDA Library Errors](#cuda-library-errors)
+- [Docker Build Issues](#docker-build-issues)
+- [Docker Runtime Issues](#docker-runtime-issues)
+- [Display Issues](#display-issues)
+- [Package Compatibility Issues](#package-compatibility-issues)
+- [Performance Issues](#performance-issues)
+
+---
+
+## CUDA Library Errors
+
+### libcurand.so.10: cannot open shared object file
+
+**Error Message:**
+```
+OSError: libcurand.so.10: cannot open shared object file: No such file or directory
+```
+
+**Cause:**
+The Docker container cannot find CUDA libraries from the host system. This typically happens when:
+1. CUDA libraries are not properly mounted from the host
+2. LD_LIBRARY_PATH is not set correctly
+3. JetPack is not fully installed on the host
+
+**Solution:**
+
+1. **Verify CUDA is installed on your Jetson Nano** (comes with JetPack):
+```bash
+ls /usr/local/cuda/lib64/libcurand.so.10
+```
+
+2. **Check your docker-compose.yml has the correct volume mounts**:
+```yaml
+volumes:
+  - /usr/local/cuda:/usr/local/cuda:ro
+environment:
+  - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+```
+
+3. **Rebuild without cache**:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+4. **Verify NVIDIA Container Runtime is properly installed**:
+```bash
+# Check if nvidia runtime is available
+docker info | grep -i runtime
+
+# Test NVIDIA runtime
+docker run --rm --runtime nvidia nvcr.io/nvidia/l4t-base:r32.7.1 nvidia-smi
+```
+
+**Additional Checks:**
+- Ensure JetPack 4.6.x is fully installed on your Jetson Nano
+- Verify CUDA version matches PyTorch requirements (CUDA 10.2 for L4T PyTorch r32.7.1)
+- Check that host CUDA libraries are accessible and not corrupted
+
+---
+
+## Docker Build Issues
+
+### GPG Key Verification Error
+
+**Error Message:**
+```
+E: The repository 'https://apt.kitware.com/ubuntu bionic InRelease' is not signed.
+```
+
+**Cause:**
+The Kitware APT repository has GPG key issues that can break the Docker build process.
+
+**Solution:**
+
+The latest Dockerfile comprehensively removes all Kitware repository references. If you still encounter this issue:
+
+1. **Ensure you're using the latest version of the Dockerfile**
+
+2. **Rebuild without cache**:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+3. **If the issue persists**, manually remove Kitware references:
+```bash
+# On your Jetson Nano (not in container)
+sudo rm -f /etc/apt/sources.list.d/kitware.list*
+sudo find /etc/apt/sources.list.d/ -type f -name '*kitware*' -delete
+sudo sed -i '/kitware/d' /etc/apt/sources.list
+sudo apt-key del 16FAAD7AF99A65E2
+sudo apt-get update
+```
+
+---
+
+## Docker Runtime Issues
+
+### Read-Only File System Error
+
+**Error Message:**
+```
+nvidia-container-cli: mount error: file creation failed: /var/lib/docker/overlay2/.../merged/usr/lib/aarch64-linux-gnu/libcuda.so.1.1: read-only file system: unknown
+```
+
+**Cause:**
+The nvidia-container-runtime tries to inject NVIDIA libraries into a directory that is mounted as read-only from the host.
+
+**Solution:**
+
+1. **Remove the read-only mount of `/usr/lib/aarch64-linux-gnu`** from docker-compose.yml (should NOT be present in the latest version)
+
+2. **Ensure your docker-compose.yml looks like this**:
+```yaml
+volumes:
+  - /tmp/.X11-unix:/tmp/.X11-unix:ro
+  - /usr/local/cuda:/usr/local/cuda:ro
+  - ./model:/app/model
+  - ./high_score.txt:/app/high_score.txt
+# NOTE: Do NOT mount /usr/lib/aarch64-linux-gnu
+```
+
+3. **Rebuild and restart**:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+### File Exists Error
+
+**Error Message:**
+```
+nvidia-container-cli: mount error: file creation failed: /var/lib/docker/overlay2/.../merged/usr/lib/libvisionworks.so: file exists
+```
+
+**Cause:**
+The NVIDIA container runtime tries to mount libraries that already exist in the container image.
+
+**Solution:**
+
+The latest Dockerfile removes conflicting NVIDIA libraries during the build process. This is safe because nvidia-container-runtime will provide these libraries from the host system at runtime.
+
+1. **Ensure you're using the latest version of the Dockerfile**
+
+2. **Rebuild without cache**:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+3. **Verify the Dockerfile contains**:
+```dockerfile
+# Remove conflicting NVIDIA libraries
+RUN rm -f /usr/lib/aarch64-linux-gnu/libcuda.so* \
+    /usr/lib/aarch64-linux-gnu/libnvidia-*.so* \
+    /usr/lib/aarch64-linux-gnu/libvisionworks*.so* \
+    # ... etc
+```
+
+---
+
+## Display Issues
+
+### X11 Connection Errors
+
+**Error Message:**
+```
+No protocol specified
+cannot connect to X server :0
+```
+
+**Cause:**
+Docker container doesn't have permission to access the X11 display server.
+
+**Solution:**
+
+1. **Allow X11 connections from Docker**:
+```bash
+xhost +local:docker
+```
+
+2. **Set DISPLAY environment variable**:
+```bash
+export DISPLAY=:0
+```
+
+3. **Verify X11 socket is mounted** in docker-compose.yml:
+```yaml
+volumes:
+  - /tmp/.X11-unix:/tmp/.X11-unix:ro
+environment:
+  - DISPLAY=${DISPLAY}
+```
+
+### Headless Environment (No Display)
+
+**Scenario:**
+Running on a headless system or via SSH without X11 forwarding.
+
+**Solution:**
+
+Set up a virtual display using Xvfb:
+
+```bash
+# Install Xvfb
+sudo apt-get install xvfb
+
+# Start virtual display
+Xvfb :99 -screen 0 1024x768x24 &
+
+# Set DISPLAY variable
+export DISPLAY=:99
+
+# Run your application
+python main.py
+```
+
+For testing without display:
+```bash
+export SDL_VIDEODRIVER=dummy
+python test_snake_game.py
+```
+
+---
+
+## Package Compatibility Issues
+
+### Python Version Mismatch
+
+**Issue:**
+Error installing packages due to Python version incompatibility.
+
+**Cause:**
+The Docker base image uses Python 3.6.9, but some packages require newer Python versions.
+
+**Solution:**
+
+The requirements.txt has been updated with Python 3.6 compatible versions:
+
+```txt
+# Python 3.6 compatible versions
+pygame==2.1.2    # Last version supporting Python 3.6
+numpy==1.19.5    # Last version supporting Python 3.6
+# PyTorch 1.10 pre-installed in base image
+```
+
+**Do NOT upgrade** to these versions (incompatible with Python 3.6):
+- ❌ pygame 2.5.2 (requires Python 3.8+)
+- ❌ torch 2.0.1 (requires Python 3.8+)
+- ❌ numpy 1.24.3 (requires Python 3.8+)
+
+### PyTorch Version Mismatch
+
+**Issue:**
+Attempting to install PyTorch 2.x on Jetson Nano causes errors.
+
+**Cause:**
+Jetson Nano with JetPack 4.6.x uses CUDA 10.2, which is only compatible with PyTorch 1.10 or earlier.
+
+**Solution:**
+
+**DO NOT** install PyTorch via pip in the Dockerfile or requirements.txt. The base Docker image `nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3` already includes:
+- PyTorch 1.10 (built for CUDA 10.2)
+- Python 3.6.9
+- All necessary CUDA libraries
+
+If you accidentally installed the wrong version:
+```bash
+# Remove incorrect PyTorch
+pip3 uninstall torch
+
+# Use the base image's PyTorch (already installed)
+# No need to reinstall
+```
+
+### Pip Upgrade Issues
+
+**Issue:**
+Latest pip version may not work correctly with Python 3.6.
+
+**Solution:**
+
+Use pip version < 21.0 for Python 3.6 compatibility:
+```bash
+pip3 install --upgrade "pip<21.0"
+```
+
+---
+
+## Performance Issues
+
+### Low FPS / Laggy Training
+
+**Possible Causes:**
+1. CUDA not being used (running on CPU)
+2. Insufficient memory
+3. Thermal throttling
+
+**Solutions:**
+
+1. **Verify CUDA is available**:
+```python
+import torch
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+```
+
+2. **Check memory usage**:
+```bash
+# Monitor GPU memory
+tegrastats
+
+# Monitor system memory
+free -h
+```
+
+3. **Reduce batch size** if memory is low (in `agent.py`):
+```python
+BATCH_SIZE = 500  # Reduce from 1000
+```
+
+4. **Enable fan** (if thermal throttling):
+```bash
+# Set fan to maximum
+sudo jetson_clocks
+sudo sh -c 'echo 255 > /sys/devices/pwm-fan/target_pwm'
+```
+
+### High Memory Usage
+
+**Solution:**
+
+1. **Reduce memory buffer size** in `agent.py`:
+```python
+MAX_MEMORY = 50_000  # Reduce from 100,000
+```
+
+2. **Close other applications**:
+```bash
+# Kill unnecessary processes
+sudo systemctl stop nvargus-daemon
+```
+
+---
+
+## Additional Resources
+
+### Useful Commands
+
+**Check CUDA installation:**
+```bash
+nvcc --version
+ls /usr/local/cuda/lib64/
+```
+
+**Check Docker setup:**
+```bash
+docker info
+docker ps
+docker logs <container_id>
+```
+
+**Monitor Jetson Nano:**
+```bash
+tegrastats
+jtop  # Install with: sudo pip3 install jetson-stats
+```
+
+**Clean up Docker:**
+```bash
+# Remove all stopped containers
+docker container prune
+
+# Remove unused images
+docker image prune -a
+
+# Clean everything
+docker system prune -a
+```
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. Check the [GitHub Issues](https://github.com/dong881/jetson-nano-project/issues)
+2. Create a new issue with:
+   - Error message (full stack trace)
+   - Your system info (JetPack version, Docker version)
+   - Steps to reproduce
+   - docker-compose.yml and Dockerfile content
+
+---
+
+## Version Compatibility Matrix
+
+| Component | Version | Python | CUDA | Notes |
+|-----------|---------|--------|------|-------|
+| JetPack | 4.6.x | 3.6.9 | 10.2 | Required for Jetson Nano |
+| PyTorch | 1.10 | 3.6+ | 10.2 | Pre-installed in base image |
+| pygame | 2.1.2 | 3.6+ | N/A | Last version for Python 3.6 |
+| numpy | 1.19.5 | 3.6+ | N/A | Last version for Python 3.6 |
+| Docker | 19.03+ | N/A | N/A | With nvidia-container-runtime |
+
+**Important:** Do not mix versions from different rows. Use the exact versions specified for Jetson Nano compatibility.
