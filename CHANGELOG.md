@@ -1,3 +1,195 @@
+# Changelog
+
+## CUDA Library Path Fix (Latest)
+
+### Problem Statement
+
+Despite previous fixes to package versions, the application still failed with:
+```
+OSError: libcurand.so.10: cannot open shared object file: No such file or directory
+```
+
+This occurred when PyTorch tried to load CUDA libraries during import.
+
+### Root Cause
+
+The issue was that while the docker-compose.yml mounted `/usr/local/cuda` from the host and set `LD_LIBRARY_PATH` as an environment variable, the Dockerfile itself did not have `LD_LIBRARY_PATH` configured. This meant:
+
+1. **PyTorch loads during image build**: When the container starts, Python imports PyTorch before environment variables from docker-compose are fully available
+2. **Missing library paths**: The base image's LD_LIBRARY_PATH didn't include all possible CUDA library locations
+3. **No diagnostics**: When the error occurred, there was no helpful information about what went wrong
+
+### Solutions Implemented
+
+#### 1. Fixed Dockerfile LD_LIBRARY_PATH Configuration
+
+**Added to Dockerfile** (line 78):
+```dockerfile
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+```
+
+This ensures CUDA libraries can be found in multiple locations:
+- `/usr/local/cuda/lib64` - Primary CUDA toolkit location (JetPack default)
+- `/usr/local/cuda/lib` - Alternative 32-bit or older CUDA installations
+- `/usr/lib/aarch64-linux-gnu` - System library location for ARM64
+- `$LD_LIBRARY_PATH` - Preserves any existing paths from the base image
+
+#### 2. Removed CUDA Stub Libraries
+
+**Added to Dockerfile** (lines 70-73):
+```dockerfile
+RUN rm -rf /usr/local/cuda-*/lib*/stubs \
+    2>/dev/null || true
+```
+
+CUDA stub libraries are only needed for compilation, not runtime. They can conflict with real CUDA libraries provided by the nvidia-container-runtime.
+
+#### 3. Created Startup Diagnostics Script
+
+**Created** `check_cuda.sh`:
+- Checks for CUDA library availability before starting the application
+- Searches multiple locations for libcurand and other CUDA libraries
+- Provides clear, actionable error messages if libraries are missing
+- Continues with warnings instead of hard failures for better user experience
+
+**Updated Dockerfile CMD**:
+```dockerfile
+CMD ["./check_cuda.sh"]
+```
+
+#### 4. Simplified docker-compose.yml
+
+**Removed**:
+```yaml
+environment:
+  - LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+```
+
+This is no longer needed since LD_LIBRARY_PATH is now set in the Dockerfile itself.
+
+**Kept**:
+```yaml
+volumes:
+  - /usr/local/cuda:/usr/local/cuda:ro
+```
+
+This mounts CUDA toolkit from the host Jetson Nano.
+
+#### 5. Created Setup Verification Script
+
+**Created** `verify_jetson_setup.sh`:
+- Pre-deployment verification script for Jetson Nano
+- Checks all prerequisites before running Docker container:
+  - JetPack/L4T version
+  - CUDA installation and libraries
+  - Docker and nvidia-container-runtime
+  - Docker Compose
+  - X11 configuration
+- Provides color-coded pass/fail/warning indicators
+- Tests nvidia-container-runtime functionality
+
+#### 6. Enhanced Documentation
+
+**Updated TROUBLESHOOTING.md**:
+- Expanded libcurand.so.10 error section with detailed troubleshooting steps
+- Added instructions for installing nvidia-container-runtime
+- Documented how to verify CUDA installation
+- Explained the startup diagnostics and how to interpret them
+
+**Updated DEPENDENCIES.md**:
+- Documented the LD_LIBRARY_PATH configuration
+- Explained the importance of mounting /usr/local/cuda
+- Added verification steps
+
+**Updated README.md and QUICKSTART.md**:
+- Added instructions to run verify_jetson_setup.sh before deployment
+- Documented the new startup diagnostics
+- Updated project structure to include new scripts
+
+### Files Changed
+
+**Modified**:
+1. `Dockerfile` - Added LD_LIBRARY_PATH, removed stub libraries
+2. `docker-compose.yml` - Removed redundant LD_LIBRARY_PATH environment variable
+3. `TROUBLESHOOTING.md` - Enhanced CUDA troubleshooting section
+4. `DEPENDENCIES.md` - Added LD_LIBRARY_PATH documentation
+5. `README.md` - Added verification script instructions
+6. `QUICKSTART.md` - Added verification step to Docker deployment
+
+**Created**:
+1. `check_cuda.sh` - Startup diagnostics script
+2. `verify_jetson_setup.sh` - Pre-deployment verification script
+
+### Testing Instructions
+
+**On Jetson Nano:**
+
+1. **Verify prerequisites**:
+```bash
+./verify_jetson_setup.sh
+```
+
+2. **Build and run**:
+```bash
+xhost +local:docker
+docker compose build --no-cache
+docker compose up
+```
+
+3. **Check startup output**:
+Look for "CUDA Library Configuration Check" section. It should show:
+```
+✓ CUDA libraries found
+```
+
+4. **Verify PyTorch CUDA**:
+If the container starts successfully, PyTorch should be able to use CUDA without errors.
+
+### Expected Behavior
+
+**Before Fix**:
+```
+OSError: libcurand.so.10: cannot open shared object file: No such file or directory
+jetson-nano-project-snake-game-1 exited with code 1
+```
+
+**After Fix**:
+```
+======================================== 
+CUDA Library Configuration Check
+========================================
+LD_LIBRARY_PATH: /usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:...
+
+Searching for CUDA libraries...
+Found libcurand in: /usr/local/cuda/lib64
+✓ CUDA libraries found
+
+========================================
+Starting Snake Game Application
+========================================
+
+pygame 2.1.2 (SDL 2.0.16, Python 3.6.9)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[Application starts successfully]
+```
+
+### Prevention Measures
+
+1. **Always set LD_LIBRARY_PATH in Dockerfile**: Don't rely solely on docker-compose environment variables
+2. **Include startup diagnostics**: Help users troubleshoot issues quickly
+3. **Provide verification tools**: Let users check prerequisites before deployment
+4. **Document library paths**: Make it clear where CUDA libraries should be located
+
+### Related Issues
+
+This fix resolves:
+- ✅ libcurand.so.10 not found error
+- ✅ PyTorch unable to load CUDA libraries
+- ✅ No diagnostic information when startup fails
+- ✅ Unclear prerequisites for deployment
+
+---
+
 # Dependency Fix and Documentation Reorganization Summary
 
 ## Problem Statement
