@@ -1,6 +1,65 @@
 # Changelog
 
-## CUDA Library Path Fix (Latest)
+## Additional CUDA Library Symlinks Fix (Latest)
+
+### Problem Statement
+
+After the previous CUDA library path fixes, some users still encountered errors when running the application:
+```
+OSError: libcufft.so.10: cannot open shared object file: No such file or directory
+```
+
+This occurred when PyTorch tried to use CUDA FFT (Fast Fourier Transform) operations or other advanced CUDA features.
+
+### Root Cause
+
+PyTorch requires several CUDA libraries beyond just `libcurand`:
+- `libcufft.so.10` - CUDA FFT library for Fourier transforms
+- `libcusparse.so.10` - CUDA sparse matrix operations
+- `libcusolver.so.10` - CUDA linear algebra operations
+
+The `check_cuda.sh` script was only creating symlinks for a subset of CUDA libraries (libcurand, libcublas, libcublasLt, libcudnn), missing the additional libraries that PyTorch might need for specific operations.
+
+### Solution Implemented
+
+#### Updated check_cuda.sh Library List
+
+**Modified** the `libs_to_link` array in `check_cuda.sh` to include:
+```bash
+local libs_to_link=(
+    "libcurand.so.10.0:libcurand.so.10"
+    "libcublas.so.10.0:libcublas.so.10"
+    "libcublasLt.so.10.0:libcublasLt.so.10"
+    "libcudnn.so.8:libcudnn.so.8"
+    "libcufft.so.10.0:libcufft.so.10"       # NEW - FFT operations
+    "libcusparse.so.10.0:libcusparse.so.10" # NEW - Sparse matrices
+    "libcusolver.so.10.0:libcusolver.so.10" # NEW - Linear algebra
+)
+```
+
+This ensures that all commonly used CUDA libraries by PyTorch are available with the correct version symlinks.
+
+#### Updated Documentation
+
+- Updated `DEPENDENCIES.md` to list all CUDA libraries
+- Updated `FIX_SUMMARY.md` to document the complete library list
+- Updated `TROUBLESHOOTING.md` with a new section for libcufft errors
+
+### Impact
+
+This fix resolves the `libcufft.so.10` error and prevents similar errors for other CUDA libraries, ensuring PyTorch can use all CUDA features without library loading failures.
+
+### Files Changed
+
+- `check_cuda.sh` - Added libcufft, libcusparse, libcusolver to symlink creation
+- `DEPENDENCIES.md` - Updated CUDA library list
+- `FIX_SUMMARY.md` - Updated documentation
+- `TROUBLESHOOTING.md` - Added new troubleshooting section
+- `CHANGELOG.md` - This entry
+
+---
+
+## CUDA Library Path Fix
 
 ### Problem Statement
 
