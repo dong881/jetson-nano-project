@@ -26,7 +26,7 @@ Additionally, since `/usr/local/cuda` is mounted as read-only from the host, the
   - Creates `/usr/local/lib` directory (writable location)
   - Searches for CUDA libraries in multiple locations
   - Creates missing version symlinks (e.g., `libcurand.so.10 -> libcurand.so.10.0.326`)
-  - Handles multiple CUDA libraries: libcurand, libcublas, libcublasLt, libcudnn
+  - Handles multiple CUDA libraries: libcurand, libcublas, libcublasLt, libcudnn, libcufft, libcusparse, libcusolver
   - Updates LD_LIBRARY_PATH if needed
 - **Integrated** symlink creation into the startup diagnostics
 
