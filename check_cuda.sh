@@ -7,25 +7,40 @@ echo "========================================"
 echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 echo ""
 
-# Function to check for libcurand in various locations
-find_libcurand() {
+# Function to check for CUDA libraries in various locations
+find_cuda_libs() {
     local locations=(
         "/usr/local/cuda/lib64"
         "/usr/local/cuda/lib"
         "/usr/lib/aarch64-linux-gnu"
         "/usr/local/cuda-10.2/lib64"
+        "/usr/local/cuda-10.2/targets/aarch64-linux/lib"
     )
+    
+    local found_any=false
+    local required_libs=("libcurand" "libcufft" "libcublas" "libcudart")
     
     for loc in "${locations[@]}"; do
         if [ -d "$loc" ]; then
-            if ls "$loc"/libcurand.so* &> /dev/null; then
-                echo "Found libcurand in: $loc"
-                ls -lh "$loc"/libcurand.so* | head -3
-                return 0
-            fi
+            local found_in_loc=false
+            for lib in "${required_libs[@]}"; do
+                if ls "$loc"/${lib}.so* &> /dev/null; then
+                    if [ "$found_in_loc" = false ]; then
+                        echo "Found CUDA libraries in: $loc"
+                        found_in_loc=true
+                        found_any=true
+                    fi
+                    ls -lh "$loc"/${lib}.so* | head -1
+                fi
+            done
         fi
     done
-    return 1
+    
+    if [ "$found_any" = true ]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # Function to create missing CUDA library symlinks
@@ -46,13 +61,13 @@ create_cuda_symlinks() {
     )
     
     local libs_to_link=(
-        "libcurand.so.10.0:libcurand.so.10"
-        "libcublas.so.10.0:libcublas.so.10"
-        "libcublasLt.so.10.0:libcublasLt.so.10"
+        "libcurand.so.10:libcurand.so.10"
+        "libcublas.so.10:libcublas.so.10"
+        "libcublasLt.so.10:libcublasLt.so.10"
         "libcudnn.so.8:libcudnn.so.8"
-        "libcufft.so.10.0:libcufft.so.10"
-        "libcusparse.so.10.0:libcusparse.so.10"
-        "libcusolver.so.10.0:libcusolver.so.10"
+        "libcufft.so.10:libcufft.so.10"
+        "libcusparse.so.10:libcusparse.so.10"
+        "libcusolver.so.10:libcusolver.so.10"
     )
     
     for cuda_dir in "${cuda_dirs[@]}"; do
@@ -60,13 +75,27 @@ create_cuda_symlinks() {
             for lib_pair in "${libs_to_link[@]}"; do
                 IFS=':' read -r source_lib target_lib <<< "$lib_pair"
                 
-                # Find the source library
+                # Find the source library with flexible version matching
                 local source_path
-                source_path=$(find "$cuda_dir" -name "$source_lib*" -type f -o -name "$source_lib" -type l 2>/dev/null | head -1)
+                # First try to find the exact library name
+                source_path=$(find "$cuda_dir" -name "$source_lib" -type f -o -name "$source_lib" -type l 2>/dev/null | head -1)
+                
+                # If not found, try to find any version of the library
+                if [ -z "$source_path" ]; then
+                    local base_lib_name=$(echo "$source_lib" | sed 's/\.so\..*$/.so/')
+                    source_path=$(find "$cuda_dir" -name "${base_lib_name}.*" -type f 2>/dev/null | head -1)
+                fi
+                
+                # If still not found, try to find any file starting with the library name
+                if [ -z "$source_path" ]; then
+                    source_path=$(find "$cuda_dir" -name "${source_lib}*" -type f 2>/dev/null | head -1)
+                fi
                 
                 if [ -n "$source_path" ] && [ ! -e "$link_dir/$target_lib" ]; then
                     echo "Creating symlink: $link_dir/$target_lib -> $source_path"
                     ln -sf "$source_path" "$link_dir/$target_lib"
+                elif [ -z "$source_path" ]; then
+                    echo "Warning: Could not find $source_lib in $cuda_dir"
                 fi
             done
         fi
@@ -78,18 +107,64 @@ create_cuda_symlinks() {
         echo "Updated LD_LIBRARY_PATH to include $link_dir"
     fi
     
+    # Fallback: Create symlinks from any available CUDA library versions
+    echo ""
+    echo "Creating fallback symlinks for missing libraries..."
+    local fallback_libs=(
+        "libcufft.so.10"
+        "libcurand.so.10" 
+        "libcublas.so.10"
+        "libcusparse.so.10"
+        "libcusolver.so.10"
+    )
+    
+    for target_lib in "${fallback_libs[@]}"; do
+        if [ ! -e "$link_dir/$target_lib" ]; then
+            # Try to find any version of this library
+            local base_name=$(echo "$target_lib" | sed 's/\.so\..*$/.so/')
+            local found_lib
+            found_lib=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${base_name}.*" -type f 2>/dev/null | head -1)
+            
+            if [ -n "$found_lib" ]; then
+                echo "Creating fallback symlink: $link_dir/$target_lib -> $found_lib"
+                ln -sf "$found_lib" "$link_dir/$target_lib"
+            fi
+        fi
+    done
+    
     echo "✓ CUDA symlinks check complete"
+    
+    # Verify critical libraries are accessible
+    echo ""
+    echo "Verifying critical CUDA libraries..."
+    local critical_libs=("libcufft.so.10" "libcurand.so.10" "libcublas.so.10")
+    local all_found=true
+    
+    for lib in "${critical_libs[@]}"; do
+        if [ -e "$link_dir/$lib" ] || ldconfig -p | grep -q "$lib"; then
+            echo "✓ $lib is accessible"
+        else
+            echo "✗ $lib is missing"
+            all_found=false
+        fi
+    done
+    
+    if [ "$all_found" = false ]; then
+        echo ""
+        echo "⚠ WARNING: Some critical CUDA libraries are missing"
+        echo "This may cause PyTorch to fail with CUDA errors"
+    fi
 }
 
 # Check if CUDA libraries are accessible
 echo "Searching for CUDA libraries..."
-if find_libcurand; then
+if find_cuda_libs; then
     echo "✓ CUDA libraries found"
     # Create any missing symlinks that PyTorch might need
     create_cuda_symlinks
 else
     echo ""
-    echo "⚠ WARNING: libcurand not found in expected locations"
+    echo "⚠ WARNING: CUDA libraries not found in expected locations"
     echo ""
     echo "This error typically means:"
     echo "  1. JetPack is not installed on your Jetson Nano"
