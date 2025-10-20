@@ -72,7 +72,7 @@ lrwxrwxrwx 1 root root  21 ... libcurand.so.10.0 -> libcurand.so.10.0.326
 
 Checking for missing CUDA library symlinks...
 Creating symlink: /usr/local/lib/libcurand.so.10 -> /usr/local/cuda/lib64/libcurand.so.10.0.326
-Creating symlink: /usr/local/lib/libcublas.so.10 -> /usr/local/cuda/lib64/libcublas.so.10.0.xxx
+Creating symlink: /usr/local/lib/libcublas.so.10 -> /usr/local/cuda/lib64/libcublas.so.10.0.167
 ✓ CUDA symlinks check complete
 
 ========================================

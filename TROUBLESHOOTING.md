@@ -93,7 +93,8 @@ The latest version of the project (v2.0+) includes automatic creation of these s
    When the container starts, you should see output like:
    ```
    Creating symlink: /usr/local/lib/libcufft.so.10 -> /usr/local/cuda/lib64/libcufft.so.10.0.326
-   Creating symlink: /usr/local/lib/libcusparse.so.10 -> /usr/local/cuda/lib64/libcusparse.so.10.0.xxx
+   Creating symlink: /usr/local/lib/libcusparse.so.10 -> /usr/local/cuda/lib64/libcusparse.so.10.0.130
+   Creating symlink: /usr/local/lib/libcusolver.so.10 -> /usr/local/cuda/lib64/libcusolver.so.10.0.326
    ```
 
 **2. Verify nvidia-container-runtime is installed**
