@@ -106,6 +106,7 @@ jetson-nano-project/
 ├── README.md                  # Main documentation (this file)
 ├── QUICKSTART.md              # Quick start guide (EN/中文)
 ├── TROUBLESHOOTING.md         # Troubleshooting guide
+├── DOCKER_FIX_EXPLANATION.md  # Detailed libcudnn.so.8 fix explanation
 └── DEPENDENCIES.md            # Dependency compatibility guide
 ```
 
@@ -114,15 +115,18 @@ jetson-nano-project/
 - **[README.md](README.md)** (this file) - Main project documentation
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide in English and Chinese
 - **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Detailed troubleshooting for common issues
+- **[DOCKER_FIX_EXPLANATION.md](DOCKER_FIX_EXPLANATION.md)** - Technical explanation of the libcudnn.so.8 fix
 - **[DEPENDENCIES.md](DEPENDENCIES.md)** - Package version compatibility and requirements
 
 ## Troubleshooting
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed solutions to common issues:
-- CUDA library errors (libcurand.so.10)
+- CUDA library errors (libcurand.so.10, libcudnn.so.8)
 - Docker build and runtime issues
 - Display and X11 forwarding problems
 - Package compatibility issues
+
+For a detailed explanation of the libcudnn.so.8 "file too short" fix, see [DOCKER_FIX_EXPLANATION.md](DOCKER_FIX_EXPLANATION.md).
 
 ## Performance
 

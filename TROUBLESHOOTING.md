@@ -15,6 +15,61 @@ This guide provides detailed solutions to common issues when running the Snake G
 
 ## CUDA Library Errors
 
+### libcudnn.so.8: file too short
+
+**Error Message:**
+```
+OSError: /usr/lib/aarch64-linux-gnu/libcudnn.so.8: file too short
+```
+
+**Cause:**
+The base Docker image contains a corrupted or broken symlink for `libcudnn.so.8` in `/usr/lib/aarch64-linux-gnu/`. This can happen when:
+1. The base image has an incomplete or corrupted CuDNN installation
+2. There's a conflict between the container's CuDNN and the host's CuDNN
+3. nvidia-container-runtime tries to mount CuDNN from the host but finds a conflicting file in the container
+
+**Solution:**
+
+The latest version of the Dockerfile removes the problematic CuDNN files from the container during the build process, allowing the nvidia-container-runtime to properly mount CuDNN from the host.
+
+**1. Update to the latest version**:
+```bash
+git pull origin main
+```
+
+**2. Rebuild with the latest Dockerfile**:
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+**What the fix does:**
+- Removes `libcudnn.so*` files from `/usr/lib/aarch64-linux-gnu/` during container build
+- Allows nvidia-container-runtime to mount the correct CuDNN library from the host
+- Creates symlinks in `/usr/local/lib` if needed for version compatibility
+
+**If the problem persists:**
+
+1. **Verify CuDNN is installed on your Jetson Nano**:
+   ```bash
+   # On the Jetson Nano host (not in Docker)
+   find /usr -name "libcudnn.so*" 2>/dev/null
+   # Should find libcudnn.so.8.x.x.x files
+   ```
+
+2. **Check nvidia-container-runtime is working**:
+   ```bash
+   docker info | grep -i runtime
+   # Should show: Runtimes: nvidia runc
+   ```
+
+3. **Verify the fix was applied**:
+   ```bash
+   docker compose logs
+   # Look for messages about CUDA library checks and symlink creation
+   ```
+
 ### libcurand.so.10: cannot open shared object file
 
 **Error Message:**

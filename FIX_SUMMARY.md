@@ -1,18 +1,32 @@
-# Fix Summary: CUDA Library Symlink Issue
+# Fix Summary: CUDA Library Issues
 
-## Problem
+## Problems Fixed
+
+### 1. Original Issue: libcurand.so.10 Missing
 The application was failing with:
 ```
 OSError: libcurand.so.10: cannot open shared object file: No such file or directory
 jetson-nano-project-snake-game-1 exited with code 1
 ```
 
-## Root Cause
+### 2. New Issue: libcudnn.so.8 File Too Short
+After the initial fix, the application was failing with:
+```
+OSError: /usr/lib/aarch64-linux-gnu/libcudnn.so.8: file too short
+jetson-nano-project-snake-game-1 exited with code 1
+```
+
+## Root Causes
+
+### Issue 1: Missing CUDA Library Symlinks
 PyTorch requires CUDA libraries with specific version symlinks (e.g., `libcurand.so.10`), but the host CUDA installation only provides libraries with more specific versions (e.g., `libcurand.so.10.0` or `libcurand.so.10.0.326`). The intermediate version symlinks that PyTorch expects are missing.
 
 Additionally, since `/usr/local/cuda` is mounted as read-only from the host, the container cannot create these symlinks in the mounted directory.
 
-## Solution Implemented
+### Issue 2: Corrupted CuDNN Library in Container
+The base Docker image contains a broken or corrupted `libcudnn.so.8` file/symlink in `/usr/lib/aarch64-linux-gnu/`. When PyTorch tries to load this library, it fails with "file too short" error. This conflicts with the nvidia-container-runtime which tries to mount the proper CuDNN library from the host.
+
+## Solutions Implemented
 
 ### 1. Dockerfile Changes
 - **Updated** `ENV LD_LIBRARY_PATH` to include `/usr/local/lib` at the beginning:
@@ -21,21 +35,35 @@ Additionally, since `/usr/local/cuda` is mounted as read-only from the host, the
   ```
   This allows runtime-created symlinks in `/usr/local/lib` to be found first.
 
+- **Added** removal of `libcudnn.so*` files from the container image:
+  ```dockerfile
+  RUN rm -f /usr/lib/aarch64-linux-gnu/libcudnn.so* \
+      /usr/lib/libcudnn.so* \
+      ...
+  ```
+  This prevents conflicts with the nvidia-container-runtime which mounts the correct CuDNN from the host.
+
 ### 2. check_cuda.sh Changes
 - **Added** `create_cuda_symlinks()` function that:
   - Creates `/usr/local/lib` directory (writable location)
-  - Searches for CUDA libraries in multiple locations
+  - Searches for CUDA libraries in multiple locations including:
+    - `/usr/local/cuda/lib64`
+    - `/usr/local/cuda-10.2/targets/aarch64-linux/lib`
+    - `/usr/lib/aarch64-linux-gnu`
+    - `/usr/local/cuda/lib`
   - Creates missing version symlinks (e.g., `libcurand.so.10 -> libcurand.so.10.0.326`)
   - Handles multiple CUDA libraries: libcurand, libcublas, libcublasLt, libcudnn, libcufft, libcusparse, libcusolver
   - Updates LD_LIBRARY_PATH if needed
 - **Integrated** symlink creation into the startup diagnostics
 
 ### 3. How It Works
-1. Container starts and check_cuda.sh runs
-2. Script finds CUDA libraries in read-only `/usr/local/cuda`
-3. Script creates symlinks in writable `/usr/local/lib` (e.g., `libcurand.so.10 -> /usr/local/cuda/lib64/libcurand.so.10.0.326`)
-4. PyTorch can now find `libcurand.so.10` via the symlink
-5. Application starts successfully
+1. Container build removes corrupted/conflicting NVIDIA libraries (including libcudnn.so*)
+2. nvidia-container-runtime mounts proper NVIDIA libraries from host at runtime
+3. Container starts and check_cuda.sh runs
+4. Script finds CUDA libraries in multiple locations (including host-mounted `/usr/local/cuda` and runtime-mounted `/usr/lib/aarch64-linux-gnu`)
+5. Script creates missing symlinks in writable `/usr/local/lib` (e.g., `libcurand.so.10 -> /usr/local/cuda/lib64/libcurand.so.10.0.326`, `libcudnn.so.8 -> /usr/lib/aarch64-linux-gnu/libcudnn.so.8.x.x.x`)
+6. PyTorch can now find all required CUDA libraries via the symlinks
+7. Application starts successfully
 
 ## How to Deploy
 
@@ -136,9 +164,9 @@ Continuing anyway - the application may fail...
 ## Files Changed
 
 ### Modified:
-- `Dockerfile` - Added `/usr/local/lib` to LD_LIBRARY_PATH
-- `check_cuda.sh` - Added automatic CUDA symlink creation
-- `TROUBLESHOOTING.md` - Enhanced documentation with symlink fix details
+- `Dockerfile` - Added `/usr/local/lib` to LD_LIBRARY_PATH and removed libcudnn.so* files
+- `check_cuda.sh` - Added automatic CUDA symlink creation with expanded search locations
+- `TROUBLESHOOTING.md` - Enhanced documentation with symlink and libcudnn fix details
 - `FIX_SUMMARY.md` - This file (updated)
 
 ## Why This Fix Works

@@ -41,6 +41,8 @@ create_cuda_symlinks() {
     local cuda_dirs=(
         "/usr/local/cuda/lib64"
         "/usr/local/cuda-10.2/targets/aarch64-linux/lib"
+        "/usr/lib/aarch64-linux-gnu"
+        "/usr/local/cuda/lib"
     )
     
     local libs_to_link=(
