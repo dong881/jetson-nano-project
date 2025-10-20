@@ -31,7 +31,7 @@ This image provides:
 - **PyTorch 1.10.0** (pre-built for CUDA 10.2)
 - **CUDA 10.2** (compatible with Jetson Nano)
 - **cuDNN 8.2.1**
-- All necessary CUDA libraries (libcurand, libcublas, etc.)
+- All necessary CUDA libraries (libcurand, libcublas, libcufft, libcusparse, libcusolver, etc.)
 
 ## Python Package Dependencies
 

@@ -48,6 +48,55 @@ dpkg -l | grep nvidia
 
 If CUDA is not installed, you need to install JetPack 4.6.x on your Jetson Nano.
 
+### libcufft.so.10 / libcusparse.so.10 / libcusolver.so.10: cannot open shared object file
+
+**Error Message:**
+```
+OSError: libcufft.so.10: cannot open shared object file: No such file or directory
+```
+(or similar errors for libcusparse.so.10, libcusolver.so.10)
+
+**Cause:**
+PyTorch requires various CUDA libraries beyond just libcurand. Depending on the operations used, it may need:
+- `libcufft.so.10` (CUDA FFT library for Fourier transforms)
+- `libcusparse.so.10` (CUDA sparse matrix operations)
+- `libcusolver.so.10` (CUDA linear algebra operations)
+
+The host CUDA installation has these libraries with specific versions (e.g., `libcufft.so.10.0.326`), but the intermediate version symlinks (e.g., `libcufft.so.10`) are missing.
+
+**Solution:**
+
+The latest version of the project (v2.0+) includes automatic creation of these symlinks in the `check_cuda.sh` startup script. The script now creates symlinks for all commonly needed CUDA libraries:
+- libcurand.so.10
+- libcublas.so.10
+- libcublasLt.so.10
+- libcudnn.so.8
+- libcufft.so.10
+- libcusparse.so.10
+- libcusolver.so.10
+
+**To apply the fix:**
+
+1. **Update to the latest version**:
+   ```bash
+   git pull origin main
+   ```
+
+2. **Rebuild and restart**:
+   ```bash
+   docker compose down
+   docker compose build --no-cache
+   docker compose up
+   ```
+
+3. **Verify the symlinks are created**:
+   When the container starts, you should see output like:
+   ```
+   Creating symlink: /usr/local/lib/libcufft.so.10 -> /usr/local/cuda/lib64/libcufft.so.10.0.326
+   Creating symlink: /usr/local/lib/libcusparse.so.10 -> /usr/local/cuda/lib64/libcusparse.so.10.0.326
+   Creating symlink: /usr/local/lib/libcusolver.so.10 -> /usr/local/cuda/lib64/libcusolver.so.10.0.326
+   ```
+
 **2. Verify nvidia-container-runtime is installed**
 
 ```bash

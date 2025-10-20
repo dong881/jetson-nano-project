@@ -48,6 +48,9 @@ create_cuda_symlinks() {
         "libcublas.so.10.0:libcublas.so.10"
         "libcublasLt.so.10.0:libcublasLt.so.10"
         "libcudnn.so.8:libcudnn.so.8"
+        "libcufft.so.10.0:libcufft.so.10"
+        "libcusparse.so.10.0:libcusparse.so.10"
+        "libcusolver.so.10.0:libcusolver.so.10"
     )
     
     for cuda_dir in "${cuda_dirs[@]}"; do
