@@ -149,6 +149,46 @@ The application should now start successfully, either with CUDA acceleration (if
 
 ## Files Modified
 
+The fix maintains backward compatibility while ensuring PyTorch 1.10 can find the CUDA libraries it expects.
+
+---
+
+## libcudnn.so.8 ImportError Fix (Jetson Docker)
+
+### Problem
+Container failed at import time with:
+
+```
+ImportError: /usr/local/lib/libcudnn.so.8: version `libcudnn.so.8' not found
+```
+
+This occurred because a runtime symlink incorrectly pointed `libcudnn.so.8` to a cuDNN 7.x file.
+
+### Changes Made
+- Hardened `check_cuda.sh` to strictly link `libcudnn.so.8` only to real cuDNN 8 artifacts and reject v7 paths.
+- Added a post-check to ensure `libcudnn.so.8` exists; if missing, it searches known locations and links it, otherwise prints a clear remediation message (upgrade/install cuDNN 8 on host).
+- Removed the host `/usr/local/cuda` bind from `docker-compose.yml` to avoid mismatched host CUDA libraries overshadowing the container/base image expectations.
+
+### How to Rebuild/Run
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up
+```
+
+### Verify Inside Container
+```bash
+docker compose run --rm snake-game bash -lc "python3 -c 'import torch; print(torch.cuda.is_available()); print(torch.backends.cudnn.version())'"
+```
+Expected: `True` and an 8xxx cuDNN version.
+
+### If It Still Fails
+- On the Jetson host (outside Docker), confirm cuDNN 8 exists:
+```bash
+find /usr -name "libcudnn.so.8*" 2>/dev/null
+```
+If not found, upgrade to JetPack 4.6.x (L4T r32.7.x) or install `libcudnn8`.
+=======
 1. `check_cuda.sh` - Enhanced cuDNN detection and symlink creation
 2. `agent.py` - Added device detection and CUDA fallback
 3. `model.py` - Added device detection and device-aware operations
