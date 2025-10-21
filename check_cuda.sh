@@ -83,7 +83,7 @@ create_cuda_symlinks() {
                 
                 # If not found, try to find any version of the library
                 if [ -z "$source_path" ]; then
-                    local base_lib_name=$(echo "$source_lib" | sed 's/\.so\..*$/.so/')
+                    local base_lib_name=$(echo "$source_lib" | sed 's/\.so\..*$/\.so/')
                     source_path=$(find "$cuda_dir" -name "${base_lib_name}.*" -type f 2>/dev/null | head -1)
                 fi
                 
@@ -122,10 +122,17 @@ create_cuda_symlinks() {
     
     for target_lib in "${fallback_libs[@]}"; do
         if [ ! -e "$link_dir/$target_lib" ]; then
-            # Try to find any version of this library
-            local base_name=$(echo "$target_lib" | sed 's/\.so\..*$/.so/')
-            local found_lib
-            found_lib=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${base_name}.*" -type f 2>/dev/null | head -1)
+            local found_lib=""
+            if [[ "$target_lib" == "libcudart.so.10.2" ]]; then
+                # Prefer exact CUDA 10.2 runtime if present
+                found_lib=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcudart.so.10.2*" -type f 2>/dev/null | head -1)
+            fi
+
+            if [ -z "$found_lib" ]; then
+                # Generic fallback for other libraries (keeps the same major version)
+                local base_name=$(echo "$target_lib" | sed 's/\.so\..*$/\.so/')
+                found_lib=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${base_name}.*" -type f 2>/dev/null | head -1)
+            fi
             
             if [ -n "$found_lib" ]; then
                 echo "Creating fallback symlink: $link_dir/$target_lib -> $found_lib"
