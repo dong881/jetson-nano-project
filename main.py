@@ -128,7 +128,9 @@ class SnakeGameUI:
         model_path = './model/model.pth'
         if os.path.exists(model_path):
             try:
-                self.agent.model.load_state_dict(torch.load(model_path))
+                # Import DEVICE from model module
+                from model import DEVICE
+                self.agent.model.load_state_dict(torch.load(model_path, map_location=DEVICE))
                 print("Model loaded successfully")
             except Exception as e:
                 print(f"Error loading model: {e}")
