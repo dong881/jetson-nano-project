@@ -1,52 +1,60 @@
-# Docker Compose CUDA Library Error Fix
+# CUDA Runtime Library Error Fix
 
-## Problem Analysis
-The Docker Compose error was caused by a missing CUDA library symlink for `libcufft.so.10`. The error occurred when PyTorch tried to load CUDA dependencies:
-
+## Problem
+The Docker container was failing with the error:
 ```
-OSError: libcufft.so.10: cannot open shared object file: No such file or directory
+OSError: libcudart.so.10.2: cannot open shared object file: No such file or directory
 ```
 
-## Root Cause
-The `check_cuda.sh` script was looking for specific CUDA library versions (e.g., `libcufft.so.10.0`) but the actual libraries in the container might have different version numbers. The symlink creation logic was too rigid and couldn't handle version variations.
+This occurred because:
+- PyTorch 1.10 (in the base Docker image) expects CUDA 10.2 libraries
+- The Jetson Nano host system has CUDA 10.0 libraries
+- The container was creating symlinks for version 10.0 libraries, but PyTorch was looking for version 10.2
 
-## Solution Implemented
+## Solution
+I implemented a comprehensive fix to create PyTorch 1.10 compatibility symlinks:
 
-### 1. Enhanced CUDA Library Detection (`check_cuda.sh`)
-- **Flexible Library Finding**: Updated the script to search for CUDA libraries with flexible version matching
-- **Fallback Mechanism**: Added fallback symlink creation for missing libraries
-- **Comprehensive Verification**: Added verification step to check if critical libraries are accessible
-- **Better Error Handling**: Improved error messages and warnings
+### 1. Updated `check_cuda.sh`
+- Added PyTorch 1.10 CUDA compatibility symlink creation
+- Enhanced library finding logic with flexible matching (exact match → version match → prefix match)
+- Added creation of `libcudart.so.10.2` and other CUDA 10.2 symlinks pointing to available CUDA 10.0 libraries
+- Updated verification to check for `libcudart.so.10.2`
 
-### 2. Improved Dockerfile
-- **Additional Library Paths**: Added more CUDA library paths to `LD_LIBRARY_PATH`
-- **Initial Symlink Creation**: Added initial CUDA library symlink creation in the Docker image as a fallback
-- **Robust Library Discovery**: Uses `find` commands to locate libraries regardless of version numbers
+### 2. Updated `Dockerfile`
+- Added creation of `libcudart.so.10.2` symlink during build process
+- This ensures compatibility even if host mount fails
 
 ### 3. Key Changes Made
 
 #### In `check_cuda.sh`:
-- Updated `find_cuda_libs()` function to check for multiple CUDA libraries (libcurand, libcufft, libcublas, libcudart)
-- Enhanced symlink creation with flexible version matching
-- Added fallback symlink creation for missing libraries
-- Added verification step to ensure critical libraries are accessible
-
-#### In `Dockerfile`:
-- Added `/usr/local/cuda-10.2/targets/aarch64-linux/lib` to `LD_LIBRARY_PATH`
-- Added initial CUDA library symlink creation in the image
-- Uses flexible `find` commands to locate libraries with any version number
-
-## Expected Result
-The Docker Compose should now start successfully without the `libcufft.so.10` error. The enhanced script will:
-1. Find CUDA libraries with flexible version matching
-2. Create appropriate symlinks for PyTorch compatibility
-3. Verify that critical libraries are accessible
-4. Provide clear error messages if libraries are still missing
-
-## Testing
-To test the fix, run:
 ```bash
-sudo docker compose up
+# Added PyTorch 1.10 compatibility symlinks
+pytorch_cuda_libs=(
+    "libcudart.so.10.0:libcudart.so.10.2"
+    "libcublas.so.10.0:libcublas.so.10.2"
+    "libcufft.so.10.0:libcufft.so.10.2"
+    "libcurand.so.10.0:libcurand.so.10.2"
+    "libcusparse.so.10.0:libcusparse.so.10.2"
+    "libcusolver.so.10.0:libcusolver.so.10.2"
+)
 ```
 
-The container should now start without CUDA library errors and the snake game should run successfully.
+#### In `Dockerfile`:
+```dockerfile
+# Added libcudart.so.10.2 symlink creation
+find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcudart.so*" -exec ln -sf {} /usr/local/lib/libcudart.so.10.2 \; 2>/dev/null || true
+```
+
+## Testing
+- Created and tested a mock environment that simulates the Jetson Nano CUDA library structure
+- Verified that the symlink creation logic correctly creates `libcudart.so.10.2` pointing to `libcudart.so.10.0.326`
+- Confirmed all PyTorch 1.10 compatibility symlinks are created successfully
+
+## Expected Result
+The Docker container should now start successfully without the `libcudart.so.10.2` error, as PyTorch will find the required CUDA 10.2 libraries through the compatibility symlinks.
+
+## Files Modified
+1. `check_cuda.sh` - Enhanced CUDA library detection and symlink creation
+2. `Dockerfile` - Added PyTorch compatibility symlink creation during build
+
+The fix maintains backward compatibility while ensuring PyTorch 1.10 can find the CUDA libraries it expects.

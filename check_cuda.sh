@@ -68,6 +68,7 @@ create_cuda_symlinks() {
         "libcufft.so.10:libcufft.so.10"
         "libcusparse.so.10:libcusparse.so.10"
         "libcusolver.so.10:libcusolver.so.10"
+        "libcudart.so.10.0:libcudart.so.10.2"
     )
     
     for cuda_dir in "${cuda_dirs[@]}"; do
@@ -116,6 +117,7 @@ create_cuda_symlinks() {
         "libcublas.so.10"
         "libcusparse.so.10"
         "libcusolver.so.10"
+        "libcudart.so.10.2"
     )
     
     for target_lib in "${fallback_libs[@]}"; do
@@ -134,10 +136,49 @@ create_cuda_symlinks() {
     
     echo "✓ CUDA symlinks check complete"
     
+    # Special handling for PyTorch 1.10 CUDA 10.2 compatibility
+    # PyTorch 1.10 expects libcudart.so.10.2 but Jetson Nano has libcudart.so.10.0
+    echo ""
+    echo "Creating PyTorch 1.10 CUDA compatibility symlinks..."
+    local pytorch_cuda_libs=(
+        "libcudart.so.10.0:libcudart.so.10.2"
+        "libcublas.so.10.0:libcublas.so.10.2"
+        "libcufft.so.10.0:libcufft.so.10.2"
+        "libcurand.so.10.0:libcurand.so.10.2"
+        "libcusparse.so.10.0:libcusparse.so.10.2"
+        "libcusolver.so.10.0:libcusolver.so.10.2"
+    )
+    
+    for lib_pair in "${pytorch_cuda_libs[@]}"; do
+        IFS=':' read -r source_lib target_lib <<< "$lib_pair"
+        
+        # Find the source library - try exact match first, then flexible matching
+        local source_path
+        source_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "$source_lib" -type f 2>/dev/null | head -1)
+        
+        # If not found, try to find any version of the library
+        if [ -z "$source_path" ]; then
+            local base_lib_name=$(echo "$source_lib" | sed 's/\.so\..*$/.so/')
+            source_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${base_lib_name}.*" -type f 2>/dev/null | head -1)
+        fi
+        
+        # If still not found, try to find any file starting with the library name
+        if [ -z "$source_path" ]; then
+            source_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${source_lib}*" -type f 2>/dev/null | head -1)
+        fi
+        
+        if [ -n "$source_path" ] && [ ! -e "$link_dir/$target_lib" ]; then
+            echo "Creating PyTorch compatibility symlink: $link_dir/$target_lib -> $source_path"
+            ln -sf "$source_path" "$link_dir/$target_lib"
+        elif [ -z "$source_path" ]; then
+            echo "Warning: Could not find $source_lib for PyTorch compatibility"
+        fi
+    done
+    
     # Verify critical libraries are accessible
     echo ""
     echo "Verifying critical CUDA libraries..."
-    local critical_libs=("libcufft.so.10" "libcurand.so.10" "libcublas.so.10")
+    local critical_libs=("libcufft.so.10" "libcurand.so.10" "libcublas.so.10" "libcudart.so.10.2")
     local all_found=true
     
     for lib in "${critical_libs[@]}"; do
