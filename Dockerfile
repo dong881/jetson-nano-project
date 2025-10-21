@@ -85,7 +85,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib:/us
 RUN mkdir -p /usr/local/lib && \
     find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcufft.so*" -exec ln -sf {} /usr/local/lib/libcufft.so.10 \; 2>/dev/null || true && \
     find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcurand.so*" -exec ln -sf {} /usr/local/lib/libcurand.so.10 \; 2>/dev/null || true && \
-    find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcublas.so*" -exec ln -sf {} /usr/local/lib/libcublas.so.10 \; 2>/dev/null || true
+    find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcublas.so*" -exec ln -sf {} /usr/local/lib/libcublas.so.10 \; 2>/dev/null || true && \
+    find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcudart.so*" -exec ln -sf {} /usr/local/lib/libcudart.so.10.2 \; 2>/dev/null || true
 
 # Set display environment variable (for X11 forwarding)
 ENV DISPLAY=:0
