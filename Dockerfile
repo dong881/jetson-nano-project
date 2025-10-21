@@ -78,7 +78,14 @@ RUN rm -rf /usr/local/cuda-*/lib*/stubs \
 # This is critical for PyTorch to work with CUDA on Jetson Nano
 # The base image may already have LD_LIBRARY_PATH set, so we prepend our path
 # /usr/local/lib is included for runtime-created symlinks
-ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/cuda/lib64:/usr/local/cuda/lib:/usr/lib/aarch64-linux-gnu:/usr/local/cuda-10.2/targets/aarch64-linux/lib:$LD_LIBRARY_PATH
+
+# Create initial CUDA library symlinks in the image
+# This ensures that even if the host mount fails, we have some CUDA libraries available
+RUN mkdir -p /usr/local/lib && \
+    find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcufft.so*" -exec ln -sf {} /usr/local/lib/libcufft.so.10 \; 2>/dev/null || true && \
+    find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcurand.so*" -exec ln -sf {} /usr/local/lib/libcurand.so.10 \; 2>/dev/null || true && \
+    find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcublas.so*" -exec ln -sf {} /usr/local/lib/libcublas.so.10 \; 2>/dev/null || true
 
 # Set display environment variable (for X11 forwarding)
 ENV DISPLAY=:0
