@@ -285,24 +285,38 @@ create_cuda_symlinks() {
 echo "Searching for CUDA libraries..."
 if find_cuda_libs; then
     echo "✓ CUDA libraries found"
-    # Create any missing symlinks that PyTorch might need
-    create_cuda_symlinks
 else
     echo ""
     echo "⚠ WARNING: CUDA libraries not found in expected locations"
     echo ""
-    echo "This error typically means:"
-    echo "  1. JetPack is not installed on your Jetson Nano"
-    echo "  2. The /usr/local/cuda volume mount is not working"
-    echo "  3. nvidia-container-runtime is not properly configured"
-    echo ""
-    echo "Please check:"
-    echo "  - JetPack 4.6.x is installed on the host"
-    echo "  - /usr/local/cuda exists on the host"
-    echo "  - nvidia-container-runtime is installed and working"
-    echo ""
-    echo "Continuing anyway - the application may fail..."
+    echo "Checking if CUDA directories are mounted..."
+    if [ ! -d "/usr/local/cuda" ] && [ ! -d "/usr/local/cuda-10.2" ]; then
+        echo "✗ CUDA directories are not mounted from the host"
+        echo ""
+        echo "This error typically means:"
+        echo "  1. JetPack is not installed on your Jetson Nano host"
+        echo "  2. The /usr/local/cuda volume mount is not working"
+        echo "  3. nvidia-container-runtime is not properly configured"
+        echo ""
+        echo "Please check:"
+        echo "  - JetPack 4.6.x is installed on the host"
+        echo "  - /usr/local/cuda exists on the host (run: ls -la /usr/local/cuda)"
+        echo "  - nvidia-container-runtime is installed and working"
+        echo "  - Docker Compose volume mounts are configured correctly"
+        echo ""
+    else
+        echo "✓ CUDA directories are mounted"
+        echo ""
+        echo "Listing CUDA directory contents:"
+        ls -la /usr/local/cuda/ 2>/dev/null | head -20 || echo "Cannot list /usr/local/cuda"
+        ls -la /usr/local/cuda-10.2/targets/aarch64-linux/lib/ 2>/dev/null | head -20 || echo "Cannot list /usr/local/cuda-10.2/targets/aarch64-linux/lib"
+    fi
 fi
+
+# Always attempt to create symlinks - this may fix missing libraries
+echo ""
+echo "Attempting to create CUDA library symlinks..."
+create_cuda_symlinks
 
 echo ""
 echo "========================================"
