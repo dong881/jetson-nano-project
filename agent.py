@@ -9,6 +9,24 @@ from collections import deque
 from snake_game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer
 
+# Check CUDA availability and handle cuDNN version issues
+def check_cuda_availability():
+    """Check if CUDA is available and working properly"""
+    try:
+        if torch.cuda.is_available():
+            # Try to create a simple tensor to test CUDA functionality
+            test_tensor = torch.tensor([1.0]).cuda()
+            return True
+    except Exception as e:
+        print(f"CUDA test failed: {e}")
+        print("Falling back to CPU mode")
+        return False
+    return False
+
+# Set device based on CUDA availability
+DEVICE = torch.device('cuda' if check_cuda_availability() else 'cpu')
+print(f"Using device: {DEVICE}")
+
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
@@ -60,7 +78,7 @@ class Agent:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
-            state0 = torch.tensor(state, dtype=torch.float)
+            state0 = torch.tensor(state, dtype=torch.float).to(DEVICE)
             prediction = self.model(state0)
             move = torch.argmax(prediction).item()
             final_move[move] = 1
@@ -75,7 +93,7 @@ class Agent:
         """Load a saved model"""
         model_path = f'./model/{filename}'
         if os.path.exists(model_path):
-            self.model.load_state_dict(torch.load(model_path))
+            self.model.load_state_dict(torch.load(model_path, map_location=DEVICE))
             print(f"Model loaded from {model_path}")
         else:
             print(f"No model found at {model_path}")
