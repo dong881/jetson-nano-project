@@ -68,7 +68,7 @@ create_cuda_symlinks() {
         "libcufft.so.10:libcufft.so.10"
         "libcusparse.so.10:libcusparse.so.10"
         "libcusolver.so.10:libcusolver.so.10"
-        "libcudart.so.10.2:libcudart.so.10.2"
+        "libcudart.so.10.0:libcudart.so.10.2"
     )
     
     for cuda_dir in "${cuda_dirs[@]}"; do
@@ -143,6 +143,80 @@ create_cuda_symlinks() {
     
     echo "✓ CUDA symlinks check complete"
     
+    # Special handling for PyTorch 1.10 CUDA 10.2 compatibility
+    # PyTorch 1.10 expects libcudart.so.10.2 but Jetson Nano has libcudart.so.10.0
+    echo ""
+    echo "Creating PyTorch 1.10 CUDA compatibility symlinks..."
+    local pytorch_cuda_libs=(
+        "libcudart.so.10.0:libcudart.so.10.2"
+        "libcublas.so.10.0:libcublas.so.10.2"
+        "libcufft.so.10.0:libcufft.so.10.2"
+        "libcurand.so.10.0:libcurand.so.10.2"
+        "libcusparse.so.10.0:libcusparse.so.10.2"
+        "libcusolver.so.10.0:libcusolver.so.10.2"
+    )
+    
+    for lib_pair in "${pytorch_cuda_libs[@]}"; do
+        IFS=':' read -r source_lib target_lib <<< "$lib_pair"
+        
+        # Find the source library - try exact match first, then flexible matching
+        local source_path
+        source_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "$source_lib" -type f 2>/dev/null | head -1)
+        
+        # If not found, try to find any version of the library
+        if [ -z "$source_path" ]; then
+            local base_lib_name=$(echo "$source_lib" | sed 's/\.so\..*$/.so/')
+            source_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${base_lib_name}.*" -type f 2>/dev/null | head -1)
+        fi
+        
+        # If still not found, try to find any file starting with the library name
+        if [ -z "$source_path" ]; then
+            source_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "${source_lib}*" -type f 2>/dev/null | head -1)
+        fi
+        
+        if [ -n "$source_path" ] && [ ! -e "$link_dir/$target_lib" ]; then
+            echo "Creating PyTorch compatibility symlink: $link_dir/$target_lib -> $source_path"
+            ln -sf "$source_path" "$link_dir/$target_lib"
+        elif [ -z "$source_path" ]; then
+            echo "Warning: Could not find $source_lib for PyTorch compatibility"
+        fi
+    done
+    
+    # Special handling for cuDNN version mismatch
+    # PyTorch 1.10 expects libcudnn.so.8 but Jetson Nano has libcudnn.so.7.6.3
+    echo ""
+    echo "Handling cuDNN version compatibility..."
+    
+    # Check if we have cuDNN 8.x available
+    local cudnn8_path
+    cudnn8_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcudnn.so.8*" -type f 2>/dev/null | head -1)
+    
+    if [ -n "$cudnn8_path" ]; then
+        echo "Found cuDNN 8.x: $cudnn8_path"
+        if [ ! -e "$link_dir/libcudnn.so.8" ]; then
+            echo "Creating cuDNN 8 symlink: $link_dir/libcudnn.so.8 -> $cudnn8_path"
+            ln -sf "$cudnn8_path" "$link_dir/libcudnn.so.8"
+        fi
+    else
+        echo "Warning: cuDNN 8.x not found, PyTorch may fail with CUDA"
+        echo "Available cuDNN versions:"
+        find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcudnn.so*" -type f 2>/dev/null | head -5
+        
+        # Try to create a compatibility symlink from cuDNN 7.x to 8.x
+        # This is a workaround that may or may not work depending on API compatibility
+        local cudnn7_path
+        cudnn7_path=$(find /usr/local/cuda* /usr/lib/aarch64-linux-gnu -name "libcudnn.so.7*" -type f 2>/dev/null | head -1)
+        
+        if [ -n "$cudnn7_path" ]; then
+            echo "Attempting cuDNN 7.x to 8.x compatibility symlink (may not work):"
+            echo "Creating symlink: $link_dir/libcudnn.so.8 -> $cudnn7_path"
+            ln -sf "$cudnn7_path" "$link_dir/libcudnn.so.8"
+            echo "Note: This is a compatibility workaround and may cause runtime errors"
+        else
+            echo "Error: No cuDNN libraries found at all"
+        fi
+    fi
+    
     # Verify critical libraries are accessible
     echo ""
     echo "Verifying critical CUDA libraries..."
@@ -158,10 +232,20 @@ create_cuda_symlinks() {
         fi
     done
     
+    # Check cuDNN specifically
+    if [ -e "$link_dir/libcudnn.so.8" ]; then
+        echo "✓ libcudnn.so.8 is accessible"
+    else
+        echo "✗ libcudnn.so.8 is missing"
+        all_found=false
+    fi
+    
     if [ "$all_found" = false ]; then
         echo ""
         echo "⚠ WARNING: Some critical CUDA libraries are missing"
         echo "This may cause PyTorch to fail with CUDA errors"
+        echo ""
+        echo "The application will attempt to fall back to CPU mode if CUDA fails"
     fi
 }
 

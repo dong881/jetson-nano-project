@@ -8,6 +8,24 @@ import torch.nn.functional as F
 import numpy as np
 import os
 
+# Check CUDA availability and handle cuDNN version issues
+def check_cuda_availability():
+    """Check if CUDA is available and working properly"""
+    try:
+        if torch.cuda.is_available():
+            # Try to create a simple tensor to test CUDA functionality
+            test_tensor = torch.tensor([1.0]).cuda()
+            return True
+    except Exception as e:
+        print(f"CUDA test failed: {e}")
+        print("Falling back to CPU mode")
+        return False
+    return False
+
+# Set device based on CUDA availability
+DEVICE = torch.device('cuda' if check_cuda_availability() else 'cpu')
+print(f"Using device: {DEVICE}")
+
 class Linear_QNet(nn.Module):
     """
     Linear Q-Network for Deep Q-Learning
@@ -45,10 +63,10 @@ class QTrainer:
         self.criterion = nn.MSELoss()
         
     def train_step(self, state, action, reward, next_state, done):
-        state = torch.tensor(np.array(state), dtype=torch.float)
-        next_state = torch.tensor(np.array(next_state), dtype=torch.float)
-        action = torch.tensor(action, dtype=torch.long)
-        reward = torch.tensor(reward, dtype=torch.float)
+        state = torch.tensor(np.array(state), dtype=torch.float).to(DEVICE)
+        next_state = torch.tensor(np.array(next_state), dtype=torch.float).to(DEVICE)
+        action = torch.tensor(action, dtype=torch.long).to(DEVICE)
+        reward = torch.tensor(reward, dtype=torch.float).to(DEVICE)
         # (n, x)
         
         if len(state.shape) == 1:
