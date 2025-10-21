@@ -13,6 +13,7 @@ services:
       # Mount CUDA libraries from host Jetson Nano
       - /usr/local/cuda:/usr/local/cuda:ro
       - /usr/local/cuda-10.2:/usr/local/cuda-10.2:ro
+
       # Mount model and high score data
       - ./model:/app/model
       - ./high_score.txt:/app/high_score.txt
