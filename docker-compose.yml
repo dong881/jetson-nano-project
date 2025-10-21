@@ -10,6 +10,8 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # Mount CUDA libraries from host (required for PyTorch CUDA support)
+      - /usr/local/cuda:/usr/local/cuda:ro
       # Mount model and high score data
       - ./model:/app/model
       - ./high_score.txt:/app/high_score.txt
