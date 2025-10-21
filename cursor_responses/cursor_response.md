@@ -1,52 +1,18 @@
-# Docker Compose CUDA Library Error Fix
+Status: I updated `check_cuda.sh` to also create and verify a symlink for `libcudart.so.10.2`, which directly addresses the runtime error `OSError: libcudart.so.10.2: cannot open shared object file`. The Dockerfile and compose setup already align with JetPack 4.6 (CUDA 10.2, PyTorch 1.10). I attempted to rebuild and validate inside the container, but Docker isn’t available in this environment; please run `docker compose build --no-cache && docker compose up` on your Jetson to test.
 
-## Problem Analysis
-The Docker Compose error was caused by a missing CUDA library symlink for `libcufft.so.10`. The error occurred when PyTorch tried to load CUDA dependencies:
+What I changed:
+- Enhanced `check_cuda.sh`:
+  - Adds `libcudart.so.10.2` to the symlink creation list (from common CUDA dirs to `/usr/local/lib`).
+  - Adds a targeted fallback that prefers exact `libcudart.so.10.2*` files.
+  - Includes `libcudart.so.10.2` in the critical verification step.
 
-```
-OSError: libcufft.so.10: cannot open shared object file: No such file or directory
-```
+How to verify on Jetson:
+1) Rebuild and run clean:
+   docker compose down && docker compose build --no-cache && docker compose up
 
-## Root Cause
-The `check_cuda.sh` script was looking for specific CUDA library versions (e.g., `libcufft.so.10.0`) but the actual libraries in the container might have different version numbers. The symlink creation logic was too rigid and couldn't handle version variations.
+2) If it still fails, exec into the running container and confirm libs:
+   docker compose run --rm snake-game bash -lc "echo $LD_LIBRARY_PATH; ls -l /usr/local/lib/libcudart.so.10.2; python3 -c 'import torch, ctypes; ctypes.CDLL("libcudart.so.10.2"); print("CUDA:", torch.cuda.is_available())'"
 
-## Solution Implemented
-
-### 1. Enhanced CUDA Library Detection (`check_cuda.sh`)
-- **Flexible Library Finding**: Updated the script to search for CUDA libraries with flexible version matching
-- **Fallback Mechanism**: Added fallback symlink creation for missing libraries
-- **Comprehensive Verification**: Added verification step to check if critical libraries are accessible
-- **Better Error Handling**: Improved error messages and warnings
-
-### 2. Improved Dockerfile
-- **Additional Library Paths**: Added more CUDA library paths to `LD_LIBRARY_PATH`
-- **Initial Symlink Creation**: Added initial CUDA library symlink creation in the Docker image as a fallback
-- **Robust Library Discovery**: Uses `find` commands to locate libraries regardless of version numbers
-
-### 3. Key Changes Made
-
-#### In `check_cuda.sh`:
-- Updated `find_cuda_libs()` function to check for multiple CUDA libraries (libcurand, libcufft, libcublas, libcudart)
-- Enhanced symlink creation with flexible version matching
-- Added fallback symlink creation for missing libraries
-- Added verification step to ensure critical libraries are accessible
-
-#### In `Dockerfile`:
-- Added `/usr/local/cuda-10.2/targets/aarch64-linux/lib` to `LD_LIBRARY_PATH`
-- Added initial CUDA library symlink creation in the image
-- Uses flexible `find` commands to locate libraries with any version number
-
-## Expected Result
-The Docker Compose should now start successfully without the `libcufft.so.10` error. The enhanced script will:
-1. Find CUDA libraries with flexible version matching
-2. Create appropriate symlinks for PyTorch compatibility
-3. Verify that critical libraries are accessible
-4. Provide clear error messages if libraries are still missing
-
-## Testing
-To test the fix, run:
-```bash
-sudo docker compose up
-```
-
-The container should now start without CUDA library errors and the snake game should run successfully.
+Notes:
+- Base image `nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3` bundles PyTorch 1.10 built against CUDA 10.2, matching JetPack 4.6. Do not reinstall `torch` in the container.
+- `docker-compose.yml` mounts `/usr/local/cuda` from the host and uses the NVIDIA runtime, so the correct CUDA libs should be present; the script now ensures `libcudart.so.10.2` is discoverable via `/usr/local/lib`.
