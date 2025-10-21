@@ -91,7 +91,15 @@ create_cuda_symlinks() {
                 if [ -z "$source_path" ]; then
                     source_path=$(find "$cuda_dir" -name "${source_lib}*" -type f 2>/dev/null | head -1)
                 fi
-                
+
+                # For cuDNN, ensure we only link to v8 artifacts
+                if [ "$source_lib" = "libcudnn.so.8" ] && [ -n "$source_path" ]; then
+                    if [[ "$source_path" != *"libcudnn.so.8"* ]]; then
+                        echo "Warning: Found $source_path for libcudnn.so.8 but it is not v8; skipping"
+                        source_path=""
+                    fi
+                fi
+
                 if [ -n "$source_path" ] && [ ! -e "$link_dir/$target_lib" ]; then
                     echo "Creating symlink: $link_dir/$target_lib -> $source_path"
                     ln -sf "$source_path" "$link_dir/$target_lib"
@@ -135,7 +143,31 @@ create_cuda_symlinks() {
     done
     
     echo "✓ CUDA symlinks check complete"
-    
+
+    # Ensure cuDNN 8 is present (do not alias to v7)
+    echo ""
+    echo "Checking for cuDNN 8..."
+    local cudnn8_found=false
+    if [ -e "$link_dir/libcudnn.so.8" ]; then
+        cudnn8_found=true
+    else
+        # Try to locate a real cuDNN 8 on the system and link it
+        local cudnn8_path
+        cudnn8_path=$(find /usr/lib/aarch64-linux-gnu /usr/local/cuda* -maxdepth 3 -name "libcudnn.so.8*" -type f 2>/dev/null | head -1)
+        if [ -n "$cudnn8_path" ]; then
+            echo "Creating symlink: $link_dir/libcudnn.so.8 -> $cudnn8_path"
+            ln -sf "$cudnn8_path" "$link_dir/libcudnn.so.8"
+            cudnn8_found=true
+        fi
+    fi
+
+    if [ "$cudnn8_found" = true ]; then
+        echo "✓ libcudnn.so.8 is available"
+    else
+        echo "✗ libcudnn.so.8 not found. PyTorch 1.10 requires cuDNN 8."
+        echo "  Upgrade JetPack to 4.6.x (L4T r32.7.x) or install libcudnn8 on the host."
+    fi
+
     # Special handling for PyTorch 1.10 CUDA 10.2 compatibility
     # PyTorch 1.10 expects libcudart.so.10.2 but Jetson Nano has libcudart.so.10.0
     echo ""

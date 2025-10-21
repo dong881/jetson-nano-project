@@ -10,10 +10,6 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
-      # Mount CUDA libraries from host system (read-only)
-      # JetPack on Jetson Nano installs CUDA at /usr/local/cuda
-      # If this path doesn't exist, ensure JetPack is properly installed
-      - /usr/local/cuda:/usr/local/cuda:ro
       # Mount model and high score data
       - ./model:/app/model
       - ./high_score.txt:/app/high_score.txt
